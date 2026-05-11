@@ -23,7 +23,7 @@ const bottomItems = [
 const Sidebar = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user } = useUser();
+  const { user, logout } = useUser();
   const [collapsed, setCollapsed] = React.useState(false);
 
   return (
@@ -95,7 +95,7 @@ const Sidebar = () => {
           );
         })}
 
-        <button className="sidebar__item sidebar__item--logout">
+        <button className="sidebar__item sidebar__item--logout" onClick={logout}>
           <LogOut size={20} />
           {!collapsed && <span className="sidebar__label">Logout</span>}
         </button>
