@@ -1,0 +1,205 @@
+/* ─── Layout ─── */
+.community-layout {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 24px;
+}
+@media (max-width: 1100px) { .community-layout { grid-template-columns: 1fr; } }
+
+/* ─── Compose ─── */
+.compose-box {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 20px;
+  margin-bottom: 16px;
+}
+.compose-box__avatar {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  border-radius: var(--radius-full);
+}
+.compose-box__input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+.compose-box__input::placeholder { color: var(--text-tertiary); }
+
+/* ─── Post Card ─── */
+.community-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.post-card {
+  padding: 20px 24px;
+  animation: fadeInUp 0.4s ease forwards;
+  opacity: 0;
+}
+.post-card__pinned {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent-amber);
+  margin-bottom: 12px;
+}
+.post-card__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.post-card__avatar {
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  border-radius: var(--radius-full);
+}
+.post-card__author-info { flex: 1; }
+.post-card__author-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.post-card__name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.post-card__rank {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.post-card__time {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+.post-card__content {
+  font-size: 14px;
+  color: var(--text-primary);
+  line-height: 1.7;
+  margin-bottom: 16px;
+}
+.post-card__actions {
+  display: flex;
+  gap: 4px;
+}
+.post-action {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  color: var(--text-secondary);
+  transition: var(--transition-fast);
+}
+.post-action:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--accent-cyan);
+}
+.post-action span { font-weight: 500; }
+
+/* ─── Sidebar Widgets ─── */
+.community-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.community-widget {
+  padding: 20px;
+}
+.community-widget__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 16px;
+}
+
+/* Trending */
+.trending-list { display: flex; flex-direction: column; gap: 10px; }
+.trending-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+.trending-item:hover { background: rgba(255, 255, 255, 0.03); }
+.trending-item__tag {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent-cyan);
+}
+.trending-item__count {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+/* Clans */
+.clan-list { display: flex; flex-direction: column; gap: 8px; }
+.clan-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+.clan-item:hover { background: rgba(255, 255, 255, 0.03); }
+.clan-item__rank {
+  font-family: 'Outfit', sans-serif;
+  font-size: 16px;
+  font-weight: 800;
+  min-width: 28px;
+}
+.clan-item__info { flex: 1; }
+.clan-item__name {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.clan-item__members {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+/* Online Avatars */
+.online-avatars {
+  display: flex;
+  align-items: center;
+}
+.online-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  border: 2px solid var(--bg-secondary);
+  margin-left: -8px;
+}
+.online-avatar:first-child { margin-left: 0; }
+.online-count {
+  margin-left: 10px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}

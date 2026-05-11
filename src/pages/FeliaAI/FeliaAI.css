@@ -1,0 +1,315 @@
+/* ─── Page Layout ─── */
+.felia-page {
+  display: flex;
+  height: 100vh;
+}
+
+/* ─── Chat Area ─── */
+.felia-chat-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ─── Chat Header ─── */
+.felia-chat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 28px;
+  border-bottom: 1px solid var(--glass-border);
+}
+.felia-chat-header__left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.felia-avatar-sm {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  border-radius: var(--radius-md);
+  background: rgba(112, 0, 255, 0.1);
+  border: 1px solid rgba(112, 0, 255, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.felia-avatar-sm__inner {
+  width: 16px;
+  height: 16px;
+  border-radius: var(--radius-full);
+  background: var(--accent-violet);
+  filter: blur(6px);
+}
+.felia-avatar-sm__status {
+  position: absolute;
+  bottom: -1px;
+  right: -1px;
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-full);
+  background: var(--accent-emerald);
+  border: 2px solid var(--bg-primary);
+}
+.felia-chat-header__name {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.felia-chat-header__status {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+/* ─── Messages ─── */
+.felia-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.felia-msg {
+  display: flex;
+  gap: 12px;
+  max-width: 75%;
+  animation: fadeInUp 0.3s ease forwards;
+  opacity: 0;
+}
+.felia-msg--user {
+  align-self: flex-end;
+  flex-direction: row-reverse;
+}
+
+.felia-msg__avatar { flex-shrink: 0; }
+.felia-msg__avatar-bot {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  background: rgba(112, 0, 255, 0.1);
+  color: var(--accent-violet);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.felia-msg__avatar-user {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  background: rgba(0, 242, 255, 0.1);
+  color: var(--accent-cyan);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.felia-msg__bubble {
+  padding: 14px 18px;
+  border-radius: var(--radius-lg);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+}
+.felia-msg--user .felia-msg__bubble {
+  background: rgba(0, 242, 255, 0.05);
+  border-color: rgba(0, 242, 255, 0.1);
+}
+.felia-msg--felia .felia-msg__bubble {
+  background: rgba(112, 0, 255, 0.04);
+  border-color: rgba(112, 0, 255, 0.08);
+}
+
+.felia-msg__text {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text-primary);
+}
+.felia-msg__time {
+  display: block;
+  font-size: 10px;
+  color: var(--text-tertiary);
+  margin-top: 6px;
+}
+
+/* Typing */
+.felia-typing {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 16px 20px;
+}
+.felia-typing__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-full);
+  background: var(--accent-violet);
+  animation: typing-dots 1.4s ease-in-out infinite;
+}
+.felia-typing__dot:nth-child(2) { animation-delay: 0.2s; }
+.felia-typing__dot:nth-child(3) { animation-delay: 0.4s; }
+
+/* ─── Quick Prompts ─── */
+.felia-quick-prompts {
+  display: flex;
+  gap: 8px;
+  padding: 0 28px 12px;
+  flex-wrap: wrap;
+}
+.felia-quick-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+.felia-quick-btn:hover {
+  color: var(--accent-cyan);
+  border-color: rgba(0, 242, 255, 0.2);
+  background: rgba(0, 242, 255, 0.03);
+}
+
+/* ─── Input Bar ─── */
+.felia-input-bar {
+  padding: 16px 28px 24px;
+}
+.felia-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+}
+.felia-input-wrapper input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+.felia-input-wrapper input::placeholder { color: var(--text-tertiary); }
+
+.felia-send-btn {
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  border-radius: var(--radius-md);
+  background: var(--accent-gradient);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+  box-shadow: 0 2px 10px rgba(0, 242, 255, 0.2);
+}
+.felia-send-btn:hover { transform: scale(1.05); box-shadow: 0 4px 16px rgba(0, 242, 255, 0.3); }
+.felia-send-btn:disabled { opacity: 0.3; transform: none; box-shadow: none; }
+
+/* ─── Info Sidebar ─── */
+.felia-info-sidebar {
+  width: 300px;
+  border-left: 1px solid var(--glass-border);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+}
+@media (max-width: 1100px) { .felia-info-sidebar { display: none; } }
+
+.felia-info-card {
+  text-align: center;
+  padding: 28px 20px;
+}
+.felia-orb-large {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 16px;
+  border-radius: var(--radius-full);
+  background: rgba(112, 0, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.felia-orb-large__core {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  background: var(--accent-violet);
+  filter: blur(10px);
+  animation: pulse-glow 3s ease-in-out infinite;
+}
+.felia-orb-large__ring {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-full);
+  border: 1px solid rgba(112, 0, 255, 0.2);
+  animation: float 4s ease-in-out infinite;
+}
+.felia-info-card__name {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+.felia-info-card__tagline {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-bottom: 20px;
+}
+.felia-info-card__stats {
+  display: flex;
+  gap: 8px;
+}
+.felia-stat {
+  flex: 1;
+  padding: 12px 8px;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--glass-border);
+}
+.felia-stat__value {
+  display: block;
+  font-family: 'Outfit', sans-serif;
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--accent-violet);
+}
+.felia-stat__label {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Capabilities */
+.felia-capabilities {
+  padding: 20px;
+}
+.felia-capabilities h4 {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 14px;
+}
+.felia-capabilities ul {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.felia-capabilities li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.felia-capabilities li svg { color: var(--accent-violet); }
