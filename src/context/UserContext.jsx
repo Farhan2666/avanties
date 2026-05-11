@@ -5,13 +5,16 @@ const UserContext = createContext();
 
 const defaultUser = {
   display_name: 'New Player',
+  displayName: 'New Player', // For UI
   username: 'player',
   bio: '',
   avatar_url: null,
+  avatar: null, // For UI
   rank: 'Newbie',
   level: 1,
   xp: 0,
   xp_max: 1000,
+  xpMax: 1000, // For UI
   total_xp: 0,
 };
 
@@ -44,13 +47,37 @@ export const UserProvider = ({ children }) => {
 
   const fetchProfile = async (userId) => {
     try {
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .single();
         
-      if (error && error.code !== 'PGRST116') throw error; // PGRST116 is not found, which is fine initially
+      // PGRST116 is "No rows found". If profile doesn't exist, we create it as an ADMIN!
+      if (error && error.code === 'PGRST116') {
+        const { data: newProfile, error: insertError } = await supabase
+          .from('profiles')
+          .insert([{ 
+            id: userId, 
+            display_name: 'Supreme Admin', 
+            username: 'admin_' + userId.substring(0,6), 
+            rank: 'OWNER', 
+            level: 99,
+            xp: 999999,
+            xp_max: 999999
+          }])
+          .select()
+          .single();
+          
+        if (!insertError) {
+          data = newProfile;
+          error = null;
+        } else {
+          console.error("Failed to auto-create admin profile:", insertError);
+        }
+      } else if (error) {
+        throw error;
+      }
       
       if (data) {
         // Map database fields to the ones components expect
