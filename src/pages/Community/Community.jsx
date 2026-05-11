@@ -89,6 +89,9 @@ const Community = () => {
   const { user, posts: userPosts, addPost, likePost, commentPost } = useUser();
   const [postContent, setPostContent] = React.useState('');
   const [likedPosts, setLikedPosts] = React.useState(new Set());
+  const [expandedComments, setExpandedComments] = React.useState(new Set());
+  const [localComments, setLocalComments] = React.useState({});
+  const [newCommentInput, setNewCommentInput] = React.useState({});
   
   // Ubah mock posts jadi state lokal biar bisa diubah (like/komen)
   const [mockPosts, setMockPosts] = React.useState(posts.map((p, i) => ({ ...p, id: `mock-${i}` })));
@@ -116,17 +119,36 @@ const Community = () => {
     setLikedPosts(prev => new Set(prev).add(postId));
   };
 
-  const handleComment = (postId) => {
-    if (!postId) return;
-    const comment = window.prompt("Tulis komentar kamu untuk postingan ini:");
-    if (comment && comment.trim() !== "") {
-      if (typeof postId === 'string' && postId.startsWith('mock')) {
-        // Update pajangan lokal
-        setMockPosts(prev => prev.map(p => p.id === postId ? { ...p, comments: p.comments + 1 } : p));
-      } else {
-        // Update database asli
-        commentPost(postId);
-      }
+  const handleCommentToggle = (postId) => {
+    setExpandedComments(prev => {
+      const next = new Set(prev);
+      if (next.has(postId)) next.delete(postId);
+      else next.add(postId);
+      return next;
+    });
+  };
+
+  const submitComment = (postId) => {
+    const commentText = newCommentInput[postId];
+    if (!commentText || !commentText.trim()) return;
+
+    // Tambah ke state lokal
+    setLocalComments(prev => ({
+      ...prev,
+      [postId]: [
+        ...(prev[postId] || []),
+        { id: Date.now(), author: user.displayName, avatar: user.avatar, text: commentText, time: 'Just now' }
+      ]
+    }));
+
+    // Reset input
+    setNewCommentInput(prev => ({ ...prev, [postId]: '' }));
+
+    // Update jumlah komen
+    if (typeof postId === 'string' && postId.startsWith('mock')) {
+      setMockPosts(prev => prev.map(p => p.id === postId ? { ...p, comments: p.comments + 1 } : p));
+    } else {
+      commentPost(postId);
     }
   };
 
@@ -191,12 +213,62 @@ const Community = () => {
                 </button>
                 <button 
                   className="post-action"
-                  onClick={() => handleComment(post.id)}
+                  onClick={() => handleCommentToggle(post.id)}
+                  style={expandedComments.has(post.id) ? { color: 'var(--accent-violet)' } : {}}
                 >
                   <MessageSquare size={16} /> <span>{post.comments}</span>
                 </button>
                 <button className="post-action"><Share2 size={16} /> <span>{post.shares}</span></button>
               </div>
+
+              {/* Reddit-style Comment Section */}
+              {expandedComments.has(post.id) && (
+                <div className="post-comments-section" style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                  
+                  {/* List Comments */}
+                  <div className="comments-list" style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' }}>
+                    {(localComments[post.id] || []).map(comment => (
+                      <div key={comment.id} className="comment-item" style={{ display: 'flex', gap: '10px' }}>
+                        <Avatar src={comment.avatar} name={comment.author} size={28} />
+                        <div className="comment-content" style={{ background: 'rgba(255,255,255,0.03)', padding: '10px 14px', borderRadius: '12px', flex: 1 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                            <span style={{ fontSize: '13px', fontWeight: 'bold', color: 'var(--text-primary)' }}>{comment.author}</span>
+                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>{comment.time}</span>
+                          </div>
+                          <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.4 }}>{comment.text}</p>
+                        </div>
+                      </div>
+                    ))}
+                    {(!localComments[post.id] || localComments[post.id].length === 0) && (
+                      <p style={{ fontSize: '13px', color: 'var(--text-tertiary)', textAlign: 'center', margin: '10px 0' }}>
+                        Belum ada komentar. Jadilah yang pertama!
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Add Comment Input */}
+                  <div className="comment-input-area" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                    <Avatar src={user.avatar} name={user.displayName} size={32} />
+                    <div style={{ flex: 1, display: 'flex', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '20px', padding: '4px 4px 4px 16px' }}>
+                      <input 
+                        type="text" 
+                        placeholder="Tulis balasan..." 
+                        style={{ flex: 1, background: 'transparent', border: 'none', color: 'white', fontSize: '13px', outline: 'none' }}
+                        value={newCommentInput[post.id] || ''}
+                        onChange={(e) => setNewCommentInput(prev => ({ ...prev, [post.id]: e.target.value }))}
+                        onKeyDown={(e) => e.key === 'Enter' && submitComment(post.id)}
+                      />
+                      <button 
+                        className="btn-primary" 
+                        style={{ padding: '6px 16px', fontSize: '12px', borderRadius: '16px' }}
+                        onClick={() => submitComment(post.id)}
+                      >
+                        Reply
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </article>
           ))}
         </div>
