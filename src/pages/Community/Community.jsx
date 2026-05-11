@@ -88,6 +88,10 @@ const getRankColor = (rank) => {
 const Community = () => {
   const { user, posts: userPosts, addPost, likePost, commentPost } = useUser();
   const [postContent, setPostContent] = React.useState('');
+  const [likedPosts, setLikedPosts] = React.useState(new Set());
+  
+  // Ubah mock posts jadi state lokal biar bisa diubah (like/komen)
+  const [mockPosts, setMockPosts] = React.useState(posts.map((p, i) => ({ ...p, id: `mock-${i}` })));
 
   const handlePost = () => {
     if (postContent.trim()) {
@@ -96,15 +100,37 @@ const Community = () => {
     }
   };
 
+  const handleLike = (postId) => {
+    if (!postId || likedPosts.has(postId)) {
+      alert("Kamu udah nge-like postingan ini!");
+      return;
+    }
+    
+    if (typeof postId === 'string' && postId.startsWith('mock')) {
+      // Update pajangan lokal
+      setMockPosts(prev => prev.map(p => p.id === postId ? { ...p, likes: p.likes + 1 } : p));
+    } else {
+      // Update database asli
+      likePost(postId);
+    }
+    setLikedPosts(prev => new Set(prev).add(postId));
+  };
+
   const handleComment = (postId) => {
+    if (!postId) return;
     const comment = window.prompt("Tulis komentar kamu untuk postingan ini:");
     if (comment && comment.trim() !== "") {
-      commentPost(postId);
-      alert("Komentar berhasil dikirim!");
+      if (typeof postId === 'string' && postId.startsWith('mock')) {
+        // Update pajangan lokal
+        setMockPosts(prev => prev.map(p => p.id === postId ? { ...p, comments: p.comments + 1 } : p));
+      } else {
+        // Update database asli
+        commentPost(postId);
+      }
     }
   };
 
-  const allPosts = [...userPosts, ...posts];
+  const allPosts = [...userPosts, ...mockPosts];
 
   return (
     <div className="page-container">
@@ -158,8 +184,8 @@ const Community = () => {
               <div className="post-card__actions">
                 <button 
                   className="post-action" 
-                  onClick={() => likePost(post.id)}
-                  style={post.likes > 0 ? { color: 'var(--accent-pink)' } : {}}
+                  onClick={() => handleLike(post.id)}
+                  style={likedPosts.has(post.id) ? { color: 'var(--accent-pink)' } : {}}
                 >
                   <Heart size={16} /> <span>{post.likes}</span>
                 </button>

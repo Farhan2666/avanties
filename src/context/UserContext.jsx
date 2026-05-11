@@ -201,6 +201,9 @@ export const UserProvider = ({ children }) => {
       p.id === postId ? { ...p, likes: p.likes + 1 } : p
     ));
     
+    // Prevent DB update for mock posts
+    if (typeof postId === 'string' && postId.startsWith('mock')) return;
+
     // Real DB update
     try {
       const post = posts.find(p => p.id === postId);
@@ -220,6 +223,9 @@ export const UserProvider = ({ children }) => {
       p.id === postId ? { ...p, comments: p.comments + 1 } : p
     ));
     
+    // Prevent DB update for mock posts
+    if (typeof postId === 'string' && postId.startsWith('mock')) return;
+
     try {
       const post = posts.find(p => p.id === postId);
       if (!post) return;
