@@ -86,13 +86,21 @@ const getRankColor = (rank) => {
 };
 
 const Community = () => {
-  const { user, posts: userPosts, addPost, likePost } = useUser();
+  const { user, posts: userPosts, addPost, likePost, commentPost } = useUser();
   const [postContent, setPostContent] = React.useState('');
 
   const handlePost = () => {
     if (postContent.trim()) {
       addPost(postContent.trim());
       setPostContent('');
+    }
+  };
+
+  const handleComment = (postId) => {
+    const comment = window.prompt("Tulis komentar kamu untuk postingan ini:");
+    if (comment && comment.trim() !== "") {
+      commentPost(postId);
+      alert("Komentar berhasil dikirim!");
     }
   };
 
@@ -150,12 +158,17 @@ const Community = () => {
               <div className="post-card__actions">
                 <button 
                   className="post-action" 
-                  onClick={() => post.isOwn && likePost(post.id)}
-                  style={post.likes > 0 && post.isOwn ? { color: 'var(--accent-pink)' } : {}}
+                  onClick={() => likePost(post.id)}
+                  style={post.likes > 0 ? { color: 'var(--accent-pink)' } : {}}
                 >
                   <Heart size={16} /> <span>{post.likes}</span>
                 </button>
-                <button className="post-action"><MessageSquare size={16} /> <span>{post.comments}</span></button>
+                <button 
+                  className="post-action"
+                  onClick={() => handleComment(post.id)}
+                >
+                  <MessageSquare size={16} /> <span>{post.comments}</span>
+                </button>
                 <button className="post-action"><Share2 size={16} /> <span>{post.shares}</span></button>
               </div>
             </article>

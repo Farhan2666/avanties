@@ -201,7 +201,7 @@ export const UserProvider = ({ children }) => {
       p.id === postId ? { ...p, likes: p.likes + 1 } : p
     ));
     
-    // Real DB update (simplified logic, usually needs a separate likes table to prevent multiple likes)
+    // Real DB update
     try {
       const post = posts.find(p => p.id === postId);
       if (!post) return;
@@ -215,12 +215,30 @@ export const UserProvider = ({ children }) => {
     }
   };
 
+  const commentPost = async (postId) => {
+    setPosts(prev => prev.map(p =>
+      p.id === postId ? { ...p, comments: p.comments + 1 } : p
+    ));
+    
+    try {
+      const post = posts.find(p => p.id === postId);
+      if (!post) return;
+      
+      await supabase
+        .from('posts')
+        .update({ comments: post.comments + 1 })
+        .eq('id', postId);
+    } catch (error) {
+      console.error('Error commenting:', error);
+    }
+  };
+
   const logout = async () => {
     await supabase.auth.signOut();
   };
 
   return (
-    <UserContext.Provider value={{ session, user, updateUser, posts, addPost, likePost, logout, loading }}>
+    <UserContext.Provider value={{ session, user, updateUser, posts, addPost, likePost, commentPost, logout, loading }}>
       {children}
     </UserContext.Provider>
   );
