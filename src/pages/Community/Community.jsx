@@ -7,94 +7,27 @@ import {
 } from 'lucide-react';
 import './Community.css';
 
-const trendingTopics = [
-  { tag: '#SeasonFinale', posts: '2.4K' },
-  { tag: '#NewUpdate', posts: '1.8K' },
-  { tag: '#ProTips', posts: '956' },
-  { tag: '#ClanWars', posts: '734' },
-];
-
-const posts = [
-  {
-    author: 'NightHawk',
-    rank: 'Diamond',
-    avatar: '#ff2d95',
-    time: '2h ago',
-    content: 'Just hit Diamond rank in Legends Arena! The new combo system is insane 🔥 Anyone else loving the Season 5 update?',
-    likes: 234,
-    comments: 45,
-    shares: 12,
-    pinned: false,
-  },
-  {
-    author: 'PixelQueen',
-    rank: 'Platinum',
-    avatar: '#7000ff',
-    time: '4h ago',
-    content: 'Looking for clan members for the upcoming Clan Wars tournament. Must be Level 20+ and active daily. DM me or reply here! 🏆',
-    likes: 156,
-    comments: 67,
-    shares: 23,
-    pinned: true,
-  },
-  {
-    author: 'ShadowByte',
-    rank: 'Gold',
-    avatar: '#00f2ff',
-    time: '6h ago',
-    content: 'Pro tip: In Shadow Realm, you can double your XP by completing the hidden dungeon quests before the daily reset. Thank me later 😎',
-    likes: 498,
-    comments: 89,
-    shares: 156,
-    pinned: false,
-  },
-  {
-    author: 'CyberWolf',
-    rank: 'Master',
-    avatar: '#00ff88',
-    time: '8h ago',
-    content: 'The Avanties community is honestly the best gaming community I\'ve ever been part of. Shoutout to the mod team for keeping things clean! 💚',
-    likes: 312,
-    comments: 34,
-    shares: 8,
-    pinned: false,
-  },
-];
-
-const topClans = [
-  { name: 'Cyber Knights', members: 156, rank: 1, color: '#ffaa00' },
-  { name: 'Shadow Legion', members: 132, rank: 2, color: '#c0c0c0' },
-  { name: 'Neon Wolves', members: 98, rank: 3, color: '#cd7f32' },
-];
-
-const getRankIcon = (rank) => {
-  switch(rank) {
-    case 'Master': return <Crown size={12} />;
-    case 'Diamond': return <Award size={12} />;
-    case 'Platinum': return <Shield size={12} />;
-    default: return <Star size={12} />;
-  }
-};
-
-const getRankColor = (rank) => {
-  switch(rank) {
-    case 'Master': return '#ff2d95';
-    case 'Diamond': return '#00f2ff';
-    case 'Platinum': return '#a855f7';
-    default: return '#ffaa00';
-  }
-};
-
 const Community = () => {
   const { user, posts: userPosts, addPost, likePost, commentPost } = useUser();
   const [postContent, setPostContent] = React.useState('');
-  const [likedPosts, setLikedPosts] = React.useState(new Set());
+  const [likedPosts, setLikedPosts] = React.useState(() => {
+    try { return new Set(JSON.parse(localStorage.getItem('likedPosts') || '[]')); } catch { return new Set(); }
+  });
   const [expandedComments, setExpandedComments] = React.useState(new Set());
-  const [localComments, setLocalComments] = React.useState({});
-  const [newCommentInput, setNewCommentInput] = React.useState({});
   
-  // Ubah mock posts jadi state lokal biar bisa diubah (like/komen)
-  const [mockPosts, setMockPosts] = React.useState(posts.map((p, i) => ({ ...p, id: `mock-${i}` })));
+  // Persist comments locally so they don't disappear on refresh
+  const [localComments, setLocalComments] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem('avanties_comments') || '{}'); } catch { return {}; }
+  });
+  const [newCommentInput, setNewCommentInput] = React.useState({});
+
+  React.useEffect(() => {
+    localStorage.setItem('avanties_comments', JSON.stringify(localComments));
+  }, [localComments]);
+
+  React.useEffect(() => {
+    localStorage.setItem('likedPosts', JSON.stringify([...likedPosts]));
+  }, [likedPosts]);
 
   const handlePost = () => {
     if (postContent.trim()) {
@@ -109,13 +42,7 @@ const Community = () => {
       return;
     }
     
-    if (typeof postId === 'string' && postId.startsWith('mock')) {
-      // Update pajangan lokal
-      setMockPosts(prev => prev.map(p => p.id === postId ? { ...p, likes: p.likes + 1 } : p));
-    } else {
-      // Update database asli
-      likePost(postId);
-    }
+    likePost(postId);
     setLikedPosts(prev => new Set(prev).add(postId));
   };
 
@@ -132,7 +59,7 @@ const Community = () => {
     const commentText = newCommentInput[postId];
     if (!commentText || !commentText.trim()) return;
 
-    // Tambah ke state lokal
+    // Tambah ke state lokal yang dipersist
     setLocalComments(prev => ({
       ...prev,
       [postId]: [
@@ -144,15 +71,11 @@ const Community = () => {
     // Reset input
     setNewCommentInput(prev => ({ ...prev, [postId]: '' }));
 
-    // Update jumlah komen
-    if (typeof postId === 'string' && postId.startsWith('mock')) {
-      setMockPosts(prev => prev.map(p => p.id === postId ? { ...p, comments: p.comments + 1 } : p));
-    } else {
-      commentPost(postId);
-    }
+    // Update jumlah komen di database asli
+    commentPost(postId);
   };
 
-  const allPosts = [...userPosts, ...mockPosts];
+  const allPosts = [...userPosts];
 
   return (
     <div className="page-container">
