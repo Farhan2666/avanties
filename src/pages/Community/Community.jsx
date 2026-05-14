@@ -7,6 +7,39 @@ import {
 } from 'lucide-react';
 import './Community.css';
 
+const trendingTopics = [
+  { tag: '#AventiesLaunch', posts: 1240 },
+  { tag: '#FeliaAI', posts: 856 },
+  { tag: '#RankedMatch', posts: 642 },
+  { tag: '#GamingHub', posts: 431 },
+];
+
+const topClans = [
+  { rank: 1, name: 'Cyber Knights', members: 1240, color: '#00f2ff' },
+  { rank: 2, name: 'Neon Samurai', members: 986, color: '#7000ff' },
+  { rank: 3, name: 'Void Walkers', members: 845, color: '#ff2d95' },
+];
+
+const getRankColor = (rank) => {
+  switch(rank?.toLowerCase()) {
+    case 'owner': return '#ff2d95';
+    case 'admin': return '#7000ff';
+    case 'pro': return '#00f2ff';
+    case 'elite': return '#00ff88';
+    default: return '#9ca3af';
+  }
+};
+
+const getRankIcon = (rank) => {
+  switch(rank?.toLowerCase()) {
+    case 'owner': return '👑';
+    case 'admin': return '🛡️';
+    case 'pro': return '⭐';
+    case 'elite': return '🔥';
+    default: return '🔰';
+  }
+};
+
 const Community = () => {
   const { user, posts: userPosts, addPost, likePost, commentPost } = useUser();
   const [postContent, setPostContent] = React.useState('');
