@@ -206,12 +206,17 @@ export const UserProvider = ({ children }) => {
 
     // Real DB update
     try {
-      const post = posts.find(p => p.id === postId);
-      if (!post) return;
+      const { data: currentPost, error: fetchError } = await supabase
+        .from('posts')
+        .select('likes')
+        .eq('id', postId)
+        .single();
+        
+      if (fetchError) throw fetchError;
       
       await supabase
         .from('posts')
-        .update({ likes: post.likes + 1 })
+        .update({ likes: (currentPost.likes || 0) + 1 })
         .eq('id', postId);
     } catch (error) {
       console.error('Error liking post:', error);
@@ -227,12 +232,17 @@ export const UserProvider = ({ children }) => {
     if (typeof postId === 'string' && postId.startsWith('mock')) return;
 
     try {
-      const post = posts.find(p => p.id === postId);
-      if (!post) return;
-      
+      const { data: currentPost, error: fetchError } = await supabase
+        .from('posts')
+        .select('comments')
+        .eq('id', postId)
+        .single();
+        
+      if (fetchError) throw fetchError;
+
       await supabase
         .from('posts')
-        .update({ comments: post.comments + 1 })
+        .update({ comments: (currentPost.comments || 0) + 1 })
         .eq('id', postId);
     } catch (error) {
       console.error('Error commenting:', error);
