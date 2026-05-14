@@ -5,6 +5,7 @@ import {
   Users, MessageSquare, Heart, Share2, Pin, TrendingUp,
   Award, Crown, Shield, Star, ChevronRight
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import './Community.css';
 
 const trendingTopics = [
@@ -134,9 +135,17 @@ const Community = () => {
             <button className="btn-primary" style={{ padding: '10px 20px', fontSize: 13 }} onClick={handlePost}>Post</button>
           </div>
 
-          {/* Posts */}
-          {allPosts.map((post, i) => (
-            <article key={post.id || i} className="post-card glass-panel" style={{ animationDelay: `${i * 0.08}s` }}>
+          <AnimatePresence>
+            {allPosts.map((post, i) => (
+              <motion.article 
+                key={post.id || i} 
+                className="post-card glass-panel"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ duration: 0.4, delay: i * 0.05 }}
+                whileHover={{ y: -4, boxShadow: '0 12px 40px rgba(0,0,0,0.3)' }}
+              >
               {post.pinned && (
                 <div className="post-card__pinned">
                   <Pin size={12} /> Pinned Post
@@ -227,53 +236,59 @@ const Community = () => {
               )}
             </article>
           ))}
+          </AnimatePresence>
         </div>
 
         {/* Sidebar Widgets */}
         <aside className="community-sidebar">
-          {/* Trending */}
-          <div className="community-widget glass-panel">
-            <h3 className="community-widget__title"><TrendingUp size={16} /> Trending</h3>
-            <div className="trending-list">
-              {trendingTopics.map((t, i) => (
-                <div key={i} className="trending-item">
-                  <span className="trending-item__tag">{t.tag}</span>
-                  <span className="trending-item__count">{t.posts} posts</span>
+            <motion.div 
+              key={i} 
+              className="community-widget glass-panel"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.3 + (i * 0.1) }}
+            >
+              <h3 className="community-widget__title">
+                {i === 0 ? <TrendingUp size={16} /> : i === 1 ? <Shield size={16} /> : <Users size={16} />} 
+                {i === 0 ? ' Trending' : i === 1 ? ' Top Clans' : ' Online Now'}
+              </h3>
+              {i === 0 ? (
+                <div className="trending-list">
+                  {trendingTopics.map((t, j) => (
+                    <div key={j} className="trending-item">
+                      <span className="trending-item__tag">{t.tag}</span>
+                      <span className="trending-item__count">{t.posts} posts</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Top Clans */}
-          <div className="community-widget glass-panel">
-            <h3 className="community-widget__title"><Shield size={16} /> Top Clans</h3>
-            <div className="clan-list">
-              {topClans.map((clan, i) => (
-                <div key={i} className="clan-item">
-                  <div className="clan-item__rank" style={{ color: clan.color }}>#{clan.rank}</div>
-                  <div className="clan-item__info">
-                    <span className="clan-item__name">{clan.name}</span>
-                    <span className="clan-item__members">{clan.members} members</span>
+              ) : i === 1 ? (
+                <>
+                  <div className="clan-list">
+                    {topClans.map((clan, j) => (
+                      <div key={j} className="clan-item">
+                        <div className="clan-item__rank" style={{ color: clan.color }}>#{clan.rank}</div>
+                        <div className="clan-item__info">
+                          <span className="clan-item__name">{clan.name}</span>
+                          <span className="clan-item__members">{clan.members} members</span>
+                        </div>
+                        <ChevronRight size={14} style={{ color: 'var(--text-tertiary)' }} />
+                      </div>
+                    ))}
                   </div>
-                  <ChevronRight size={14} style={{ color: 'var(--text-tertiary)' }} />
+                  <button className="btn-ghost" style={{ width: '100%', marginTop: 12, justifyContent: 'center', fontSize: 12 }}>
+                    View All Clans
+                  </button>
+                </>
+              ) : (
+                <div className="online-avatars">
+                  {['#00f2ff','#7000ff','#ff2d95','#00ff88','#ffaa00','#8b5cf6','#f43f5e','#06b6d4'].map((c, j) => (
+                    <div key={j} className="online-avatar" style={{ background: c, zIndex: 10 - j }} />
+                  ))}
+                  <span className="online-count">+2,340 online</span>
                 </div>
-              ))}
-            </div>
-            <button className="btn-ghost" style={{ width: '100%', marginTop: 12, justifyContent: 'center', fontSize: 12 }}>
-              View All Clans
-            </button>
-          </div>
-
-          {/* Online Members */}
-          <div className="community-widget glass-panel">
-            <h3 className="community-widget__title"><Users size={16} /> Online Now</h3>
-            <div className="online-avatars">
-              {['#00f2ff','#7000ff','#ff2d95','#00ff88','#ffaa00','#8b5cf6','#f43f5e','#06b6d4'].map((c, i) => (
-                <div key={i} className="online-avatar" style={{ background: c, zIndex: 10 - i }} />
-              ))}
-              <span className="online-count">+2,340 online</span>
-            </div>
-          </div>
+              )}
+            </motion.div>
+          ))}
         </aside>
       </div>
     </div>
