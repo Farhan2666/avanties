@@ -93,20 +93,11 @@ const Community = () => {
     const commentText = newCommentInput[postId];
     if (!commentText || !commentText.trim()) return;
 
-    // Tambah ke state lokal yang dipersist
-    setLocalComments(prev => ({
-      ...prev,
-      [postId]: [
-        ...(prev[postId] || []),
-        { id: Date.now(), author: user.displayName, avatar: user.avatar, text: commentText, time: 'Just now' }
-      ]
-    }));
+    // Update database asli dengan teks komentar
+    commentPost(postId, commentText);
 
     // Reset input
     setNewCommentInput(prev => ({ ...prev, [postId]: '' }));
-
-    // Update jumlah komen di database asli
-    commentPost(postId);
   };
 
   const allPosts = [...userPosts];
@@ -190,9 +181,9 @@ const Community = () => {
               {expandedComments.has(post.id) && (
                 <div className="post-comments-section" style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
                   
-                  {/* List Comments */}
+                  {/* List Comments from Database */}
                   <div className="comments-list" style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' }}>
-                    {(localComments[post.id] || []).map(comment => (
+                    {(post.realComments || []).map(comment => (
                       <div key={comment.id} className="comment-item" style={{ display: 'flex', gap: '10px' }}>
                         <Avatar src={comment.avatar} name={comment.author} size={28} />
                         <div className="comment-content" style={{ background: 'rgba(255,255,255,0.03)', padding: '10px 14px', borderRadius: '12px', flex: 1 }}>
@@ -204,7 +195,7 @@ const Community = () => {
                         </div>
                       </div>
                     ))}
-                    {(!localComments[post.id] || localComments[post.id].length === 0) && (
+                    {(!post.realComments || post.realComments.length === 0) && (
                       <p style={{ fontSize: '13px', color: 'var(--text-tertiary)', textAlign: 'center', margin: '10px 0' }}>
                         Belum ada komentar. Jadilah yang pertama!
                       </p>

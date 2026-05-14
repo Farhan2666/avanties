@@ -103,7 +103,13 @@ export const UserProvider = ({ children }) => {
         .from('posts')
         .select(`
           *,
-          profiles:author_id (display_name, rank, avatar_url)
+          profiles:author_id (display_name, rank, avatar_url),
+          comments_data:comments (
+            id,
+            content,
+            created_at,
+            author:author_id (display_name, avatar_url)
+          )
         `)
         .order('created_at', { ascending: false });
 
@@ -121,7 +127,14 @@ export const UserProvider = ({ children }) => {
           comments: p.comments,
           shares: p.shares,
           pinned: p.pinned,
-          isOwn: p.author_id === session?.user?.id
+          isOwn: p.author_id === session?.user?.id,
+          realComments: (p.comments_data || []).map(c => ({
+            id: c.id,
+            text: c.content,
+            author: c.author?.display_name || 'Unknown',
+            avatar: c.author?.avatar_url,
+            time: new Date(c.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          }))
         }));
         setPosts(formattedPosts);
       }
@@ -223,27 +236,57 @@ export const UserProvider = ({ children }) => {
     }
   };
 
-  const commentPost = async (postId) => {
-    setPosts(prev => prev.map(p =>
-      p.id === postId ? { ...p, comments: p.comments + 1 } : p
-    ));
-    
-    // Prevent DB update for mock posts
-    if (typeof postId === 'string' && postId.startsWith('mock')) return;
+  const commentPost = async (postId, content) => {
+    if (!session?.user?.id || !content) return;
 
     try {
-      const { data: currentPost, error: fetchError } = await supabase
+      // 1. Insert real comment
+      const { data: newCommentData, error: commentError } = await supabase
+        .from('comments')
+        .insert([{
+          post_id: postId,
+          author_id: session.user.id,
+          content: content
+        }])
+        .select(`
+          id,
+          content,
+          created_at,
+          author:author_id (display_name, avatar_url)
+        `)
+        .single();
+
+      if (commentError) throw commentError;
+
+      // 2. Update post comment count
+      const { data: currentPost } = await supabase
         .from('posts')
         .select('comments')
         .eq('id', postId)
         .single();
-        
-      if (fetchError) throw fetchError;
 
       await supabase
         .from('posts')
-        .update({ comments: (currentPost.comments || 0) + 1 })
+        .update({ comments: (currentPost?.comments || 0) + 1 })
         .eq('id', postId);
+
+      // 3. Update local state optimistically
+      const formattedComment = {
+        id: newCommentData.id,
+        text: newCommentData.content,
+        author: newCommentData.author?.display_name || 'Unknown',
+        avatar: newCommentData.author?.avatar_url,
+        time: 'Just now'
+      };
+
+      setPosts(prev => prev.map(p =>
+        p.id === postId ? { 
+          ...p, 
+          comments: p.comments + 1,
+          realComments: [...(p.realComments || []), formattedComment]
+        } : p
+      ));
+
     } catch (error) {
       console.error('Error commenting:', error);
     }
