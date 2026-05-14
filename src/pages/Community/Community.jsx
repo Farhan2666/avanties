@@ -234,7 +234,7 @@ const Community = () => {
                   </div>
                 </div>
               )}
-            </article>
+            </motion.article>
           ))}
           </AnimatePresence>
         </div>
