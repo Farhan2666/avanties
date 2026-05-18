@@ -125,9 +125,16 @@ const Community = () => {
 
   const sharePost = (postId) => {
     const url = `${window.location.origin}/community`;
-    navigator.clipboard.writeText(url).then(() => {
-      alert('Link komunitas disalin ke clipboard!');
-    }).catch(err => console.error(err));
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(() => {
+        alert('Link komunitas disalin ke clipboard!');
+      }).catch(err => {
+        alert('Gagal menyalin link: ' + err.message);
+        console.error(err);
+      });
+    } else {
+      alert('Browser Anda tidak mendukung Clipboard API. Link: ' + url);
+    }
   };
 
   return (
