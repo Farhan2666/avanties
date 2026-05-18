@@ -116,12 +116,19 @@ const Community = () => {
     }
   };
 
-  const isAdminOrOwner = user?.rank?.toLowerCase() === 'admin' || user?.rank?.toLowerCase() === 'owner';
+  const isAdminOrOwner = user?.rank?.toLowerCase().includes('admin') || user?.rank?.toLowerCase().includes('owner');
 
   const allPosts = userPosts.filter(p => {
     if (isAdminOrOwner) return true;
     return !p.is_hidden;
   });
+
+  const sharePost = (postId) => {
+    const url = `${window.location.origin}/community`;
+    navigator.clipboard.writeText(url).then(() => {
+      alert('Link komunitas disalin ke clipboard!');
+    }).catch(err => console.error(err));
+  };
 
   return (
     <div className="page-container">
@@ -279,7 +286,9 @@ const Community = () => {
                 >
                   <MessageSquare size={16} /> <span>{post.comments}</span>
                 </button>
-                <button className="post-action"><Share2 size={16} /> <span>{post.shares}</span></button>
+                <button className="post-action" onClick={() => sharePost(post.id)}>
+                  <Share2 size={16} /> <span>{post.shares}</span>
+                </button>
                 
                 {(isAdminOrOwner || post.isOwn) && (
                   <button className="post-action" style={{ color: '#ef4444' }} onClick={() => { if(window.confirm('Yakin ingin menghapus postingan ini?')) deletePost(post.id); }} title="Hapus Postingan">
