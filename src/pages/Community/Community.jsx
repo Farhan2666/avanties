@@ -3,7 +3,7 @@ import { useUser } from '../../context/UserContext';
 import Avatar from '../../components/Avatar/Avatar';
 import {
   Users, MessageSquare, Heart, Share2, Pin, TrendingUp,
-  Award, Crown, Shield, Star, ChevronRight
+  Award, Crown, Shield, Star, ChevronRight, ImagePlus, X, Trash2, AlertTriangle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import './Community.css';
@@ -42,65 +42,86 @@ const getRankIcon = (rank) => {
 };
 
 const Community = () => {
-  const { user, posts: userPosts, addPost, likePost, commentPost } = useUser();
+  const {
+    user, posts: userPosts, addPost, toggleLike, commentPost,
+    fetchPostComments, postsLoading, commentsLoadingId,
+    deletePost, reportPost, restorePost
+  } = useUser();
   const [postContent, setPostContent] = React.useState('');
-  const [likedPosts, setLikedPosts] = React.useState(() => {
-    try { return new Set(JSON.parse(localStorage.getItem('likedPosts') || '[]')); } catch { return new Set(); }
-  });
+  const [postImage, setPostImage] = React.useState(null);
+  const [postImagePreview, setPostImagePreview] = React.useState(null);
   const [expandedComments, setExpandedComments] = React.useState(new Set());
-  
-  // Persist comments locally so they don't disappear on refresh
-  const [localComments, setLocalComments] = React.useState(() => {
-    try { return JSON.parse(localStorage.getItem('avanties_comments') || '{}'); } catch { return {}; }
-  });
   const [newCommentInput, setNewCommentInput] = React.useState({});
-
-  React.useEffect(() => {
-    localStorage.setItem('avanties_comments', JSON.stringify(localComments));
-  }, [localComments]);
-
-  React.useEffect(() => {
-    localStorage.setItem('likedPosts', JSON.stringify([...likedPosts]));
-  }, [likedPosts]);
+  const [commentSending, setCommentSending] = React.useState({});
 
   const handlePost = () => {
     if (postContent.trim()) {
-      addPost(postContent.trim());
+      addPost(postContent.trim(), postImage);
       setPostContent('');
+      setPostImage(null);
+      setPostImagePreview(null);
     }
   };
 
-  const handleLike = (postId) => {
-    if (!postId || likedPosts.has(postId)) {
-      alert("Kamu udah nge-like postingan ini!");
+  const handleImageSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image too large. Max 5MB.');
       return;
     }
-    
-    likePost(postId);
-    setLikedPosts(prev => new Set(prev).add(postId));
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setPostImage(ev.target.result);
+      setPostImagePreview(ev.target.result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveImage = () => {
+    setPostImage(null);
+    setPostImagePreview(null);
+  };
+
+  const handleLike = (postId) => {
+    if (!postId) return;
+    toggleLike(postId);
   };
 
   const handleCommentToggle = (postId) => {
     setExpandedComments(prev => {
       const next = new Set(prev);
       if (next.has(postId)) next.delete(postId);
-      else next.add(postId);
+      else {
+        next.add(postId);
+        fetchPostComments(postId);
+      }
       return next;
     });
   };
 
-  const submitComment = (postId) => {
+  const submitComment = async (postId) => {
     const commentText = newCommentInput[postId];
-    if (!commentText || !commentText.trim()) return;
+    if (!commentText || !commentText.trim() || commentSending[postId]) return;
 
-    // Update database asli dengan teks komentar
-    commentPost(postId, commentText);
+    setCommentSending((prev) => ({ ...prev, [postId]: true }));
+    const result = await commentPost(postId, commentText.trim());
+    setCommentSending((prev) => ({ ...prev, [postId]: false }));
 
-    // Reset input
-    setNewCommentInput(prev => ({ ...prev, [postId]: '' }));
+    if (result?.ok) {
+      setNewCommentInput((prev) => ({ ...prev, [postId]: '' }));
+      setExpandedComments((prev) => new Set(prev).add(postId));
+    } else {
+      alert(result?.message || 'Gagal menyimpan komentar.');
+    }
   };
 
-  const allPosts = [...userPosts];
+  const isAdminOrOwner = user?.rank?.toLowerCase() === 'admin' || user?.rank?.toLowerCase() === 'owner';
+
+  const allPosts = userPosts.filter(p => {
+    if (isAdminOrOwner) return true;
+    return !p.is_hidden;
+  });
 
   return (
     <div className="page-container">
@@ -115,31 +136,109 @@ const Community = () => {
           {/* Compose */}
           <div className="compose-box glass-panel">
             <Avatar src={user.avatar} name={user.displayName} size={40} className="compose-box__avatar-wrapper" />
-            <input
-              type="text"
-              className="compose-box__input"
-              placeholder="Share something with the community..."
-              value={postContent}
-              onChange={(e) => setPostContent(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handlePost()}
-            />
+            <div className="compose-box__input-wrapper">
+              <input
+                type="text"
+                className="compose-box__input"
+                placeholder="Share something with the community..."
+                value={postContent}
+                onChange={(e) => setPostContent(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handlePost()}
+              />
+              {postImagePreview && (
+                <div className="compose-box__image-preview">
+                  <img src={postImagePreview} alt="Preview" />
+                  <button className="compose-box__remove-image" onClick={handleRemoveImage}><X size={14} /></button>
+                </div>
+              )}
+              <div className="compose-box__toolbar">
+                <button
+                  type="button"
+                  className="compose-box__image-btn"
+                  title="Add image"
+                  onClick={() => {
+                    const input = document.createElement('input');
+                    input.type = 'file';
+                    input.accept = 'image/*';
+                    input.onchange = handleImageSelect;
+                    input.click();
+                  }}
+                >
+                  <ImagePlus size={18} />
+                </button>
+              </div>
+            </div>
             <button className="btn-primary" style={{ padding: '10px 20px', fontSize: 13 }} onClick={handlePost}>Post</button>
           </div>
 
+          {postsLoading && (
+            <>
+              {[0, 1, 2].map((i) => (
+                <motion.div
+                  key={`skel-${i}`}
+                  className="post-card glass-panel post-skeleton"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <motion.div
+                    className="post-skeleton__line post-skeleton__line--short"
+                    animate={{ opacity: [0.4, 0.8, 0.4] }}
+                    transition={{ duration: 1.2, repeat: Infinity }}
+                  />
+                  <motion.div
+                    className="post-skeleton__line"
+                    animate={{ opacity: [0.4, 0.8, 0.4] }}
+                    transition={{ duration: 1.2, repeat: Infinity, delay: 0.1 }}
+                  />
+                  <motion.div
+                    className="post-skeleton__line post-skeleton__line--medium"
+                    animate={{ opacity: [0.4, 0.8, 0.4] }}
+                    transition={{ duration: 1.2, repeat: Infinity, delay: 0.2 }}
+                  />
+                </motion.div>
+              ))}
+            </>
+          )}
+
+          {!postsLoading && allPosts.length === 0 && (
+            <motion.div
+              className="glass-panel"
+              style={{ padding: '32px', textAlign: 'center', color: 'var(--text-secondary)' }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+            >
+              <p style={{ margin: 0, fontSize: 15 }}>Belum ada postingan di feed.</p>
+              <p style={{ margin: '8px 0 0', fontSize: 13, color: 'var(--text-tertiary)' }}>
+                Jadilah yang pertama share sesuatu ke komunitas!
+              </p>
+            </motion.div>
+          )}
+
           <AnimatePresence>
-            {allPosts.map((post, i) => (
+            {!postsLoading && allPosts.map((post, i) => (
               <motion.article 
                 key={post.id || i} 
                 className="post-card glass-panel"
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                transition={{ duration: 0.4, delay: i * 0.05 }}
+                exit={{ opacity: 0, scale: 0.98 }}
+                transition={{ duration: 0.2, delay: Math.min(i * 0.03, 0.15) }}
                 whileHover={{ y: -4, boxShadow: '0 12px 40px rgba(0,0,0,0.3)' }}
               >
               {post.pinned && (
                 <div className="post-card__pinned">
                   <Pin size={12} /> Pinned Post
+                </div>
+              )}
+              {post.is_hidden && isAdminOrOwner && (
+                <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', padding: '10px 14px', borderRadius: '8px', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ color: '#ef4444', fontSize: 13, fontWeight: 'bold' }}>
+                    🚨 Disembunyikan oleh sistem (Laporan: {post.reports_count})
+                  </span>
+                  <button className="btn-primary" style={{ background: '#ef4444', fontSize: 12, padding: '6px 12px' }} onClick={() => restorePost(post.id)}>
+                    Pulihkan Postingan
+                  </button>
                 </div>
               )}
               <div className="post-card__header">
@@ -159,13 +258,19 @@ const Community = () => {
                 </div>
               </div>
               <p className="post-card__content">{post.content}</p>
+              {post.imageUrl && (
+                <div className="post-card__image">
+                  <img src={post.imageUrl} alt="Post image" />
+                </div>
+              )}
               <div className="post-card__actions">
                 <button 
-                  className="post-action" 
+                  className={`post-action${post.likedByMe ? ' post-action--liked' : ''}`}
                   onClick={() => handleLike(post.id)}
-                  style={likedPosts.has(post.id) ? { color: 'var(--accent-pink)' } : {}}
+                  title={post.likedByMe ? 'Unlike' : 'Like'}
+                  aria-pressed={post.likedByMe}
                 >
-                  <Heart size={16} /> <span>{post.likes}</span>
+                  <Heart size={16} fill={post.likedByMe ? 'currentColor' : 'none'} /> <span>{post.likes}</span>
                 </button>
                 <button 
                   className="post-action"
@@ -175,6 +280,18 @@ const Community = () => {
                   <MessageSquare size={16} /> <span>{post.comments}</span>
                 </button>
                 <button className="post-action"><Share2 size={16} /> <span>{post.shares}</span></button>
+                
+                {(isAdminOrOwner || post.isOwn) && (
+                  <button className="post-action" style={{ color: '#ef4444' }} onClick={() => { if(window.confirm('Yakin ingin menghapus postingan ini?')) deletePost(post.id); }} title="Hapus Postingan">
+                    <Trash2 size={16} />
+                  </button>
+                )}
+
+                {!(post.rank?.toLowerCase() === 'admin' || post.rank?.toLowerCase() === 'owner') && !post.isOwn && (
+                  <button className="post-action" style={{ color: '#eab308' }} onClick={() => { if(window.confirm('Laporkan postingan ini karena melanggar aturan?')) reportPost(post.id); }} title="Laporkan Postingan">
+                    <AlertTriangle size={16} />
+                  </button>
+                )}
               </div>
 
               {/* Reddit-style Comment Section */}
@@ -183,6 +300,11 @@ const Community = () => {
                   
                   {/* List Comments from Database */}
                   <div className="comments-list" style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' }}>
+                    {commentsLoadingId === Number(post.id) && (
+                      <p style={{ fontSize: 13, color: 'var(--text-tertiary)', textAlign: 'center', margin: '8px 0' }}>
+                        Memuat komentar...
+                      </p>
+                    )}
                     {(post.realComments || []).map(comment => (
                       <div key={comment.id} className="comment-item" style={{ display: 'flex', gap: '10px' }}>
                         <Avatar src={comment.avatar} name={comment.author} size={28} />
@@ -195,7 +317,7 @@ const Community = () => {
                         </div>
                       </div>
                     ))}
-                    {(!post.realComments || post.realComments.length === 0) && (
+                    {commentsLoadingId !== Number(post.id) && (!post.realComments || post.realComments.length === 0) && (
                       <p style={{ fontSize: '13px', color: 'var(--text-tertiary)', textAlign: 'center', margin: '10px 0' }}>
                         Belum ada komentar. Jadilah yang pertama!
                       </p>
@@ -218,8 +340,9 @@ const Community = () => {
                         className="btn-primary" 
                         style={{ padding: '6px 16px', fontSize: '12px', borderRadius: '16px' }}
                         onClick={() => submitComment(post.id)}
+                        disabled={commentSending[post.id]}
                       >
-                        Reply
+                        {commentSending[post.id] ? '...' : 'Reply'}
                       </button>
                     </div>
                   </div>
@@ -232,6 +355,7 @@ const Community = () => {
 
         {/* Sidebar Widgets */}
         <aside className="community-sidebar">
+          {[0, 1, 2].map((i) => (
             <motion.div 
               key={i} 
               className="community-widget glass-panel"

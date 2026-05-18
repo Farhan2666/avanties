@@ -2,7 +2,7 @@ import React from 'react';
 import { useUser } from '../../context/UserContext';
 import Avatar from '../../components/Avatar/Avatar';
 import {
-  Settings as SettingsIcon, User, Shield, Bell, Palette,
+  Settings as SettingsIcon, Shield, Bell, Palette,
   Monitor, Moon, Globe, Key, Link, Volume2, Eye, Upload
 } from 'lucide-react';
 import './Settings.css';
@@ -26,13 +26,28 @@ const SettingRow = ({ icon: Icon, label, desc, children }) => (
   </div>
 );
 
+const loadPref = (key, def) => { try { const v = localStorage.getItem('avanties_' + key); return v !== null ? JSON.parse(v) : def; } catch { return def; } }
+const savePref = (key, val) => localStorage.setItem('avanties_' + key, JSON.stringify(val))
+
 const Settings = () => {
   const { user, updateUser } = useUser();
-  const [notifications, setNotifications] = React.useState(true);
-  const [sound, setSound] = React.useState(true);
-  const [darkMode, setDarkMode] = React.useState(true);
-  const [publicProfile, setPublicProfile] = React.useState(true);
-  const [twoFactor, setTwoFactor] = React.useState(false);
+  const [notifications, setNotifications] = React.useState(() => loadPref('notifications', true));
+  const [sound, setSound] = React.useState(() => loadPref('sound', true));
+  const [darkMode, setDarkMode] = React.useState(() => loadPref('darkMode', true));
+  const [compactMode, setCompactMode] = React.useState(() => loadPref('compactMode', false));
+  const [communityUpdates, setCommunityUpdates] = React.useState(() => loadPref('communityUpdates', true));
+  const [accentColor, setAccentColor] = React.useState(() => loadPref('accentColor', '#00f2ff'));
+  const [publicProfile, setPublicProfile] = React.useState(() => loadPref('publicProfile', true));
+  const [twoFactor, setTwoFactor] = React.useState(() => loadPref('twoFactor', false));
+
+  React.useEffect(() => { savePref('darkMode', darkMode); document.documentElement.style.setProperty('--accent-cyan', darkMode ? '#00f2ff' : '#0284c7'); }, [darkMode])
+  React.useEffect(() => { savePref('accentColor', accentColor); document.documentElement.style.setProperty('--accent-cyan', accentColor); }, [accentColor])
+  React.useEffect(() => { savePref('notifications', notifications) }, [notifications])
+  React.useEffect(() => { savePref('sound', sound) }, [sound])
+  React.useEffect(() => { savePref('compactMode', compactMode) }, [compactMode])
+  React.useEffect(() => { savePref('communityUpdates', communityUpdates) }, [communityUpdates])
+  React.useEffect(() => { savePref('publicProfile', publicProfile) }, [publicProfile])
+  React.useEffect(() => { savePref('twoFactor', twoFactor) }, [twoFactor])
 
   const tabs = ['Profile', 'Appearance', 'Notifications', 'Privacy', 'Connections'];
   const [activeTab, setActiveTab] = React.useState('Profile');
@@ -140,12 +155,12 @@ const Settings = () => {
                 <SettingRow icon={Palette} label="Accent Color" desc="Choose your accent color">
                   <div className="color-swatches">
                     {['#00f2ff', '#7000ff', '#ff2d95', '#00ff88', '#ffaa00'].map(c => (
-                      <div key={c} className="color-swatch" style={{ background: c }} />
+                      <div key={c} className={`color-swatch ${accentColor === c ? 'color-swatch--active' : ''}`} style={{ background: c }} onClick={() => setAccentColor(c)} />
                     ))}
                   </div>
                 </SettingRow>
                 <SettingRow icon={Monitor} label="Compact Mode" desc="Reduce spacing in the UI">
-                  <ToggleSwitch checked={false} onChange={() => {}} />
+                  <ToggleSwitch checked={compactMode} onChange={setCompactMode} />
                 </SettingRow>
               </div>
             </section>
@@ -162,7 +177,7 @@ const Settings = () => {
                   <ToggleSwitch checked={sound} onChange={setSound} />
                 </SettingRow>
                 <SettingRow icon={Globe} label="Community Updates" desc="Get notified for community posts">
-                  <ToggleSwitch checked={true} onChange={() => {}} />
+                  <ToggleSwitch checked={communityUpdates} onChange={setCommunityUpdates} />
                 </SettingRow>
               </div>
             </section>

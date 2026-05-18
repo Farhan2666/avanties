@@ -20,12 +20,28 @@ const quickPrompts = [
   { icon: Lightbulb, label: 'Pro strategies' },
 ];
 
-const feliaReplies = [
-  "Great question! Based on your play style, I'd recommend focusing on the Shadow Realm daily dungeons. They give 500 XP per run, and you can do 3 per day. That's 1,500 XP guaranteed! 🎯",
-  "Looking at your stats, you're really close to Diamond rank! You need about 2,000 more XP. I'd suggest completing the 'Ancient Trials' quest chain — it rewards 3,500 XP total and unlocks a rare title! ✨",
-  "For your current level, Legends Arena PvP matches give the best XP-to-time ratio. Pro tip: queue during off-peak hours (early morning) for faster matchmaking and easier opponents. 😎",
-  "I noticed you haven't tried Mystic Forge yet! It's perfect for your exploration-heavy playstyle. Plus, there's a limited event running that gives double XP this week. Don't miss it! 🔥",
-];
+const keywordReplies = [
+  { keywords: ['quest', 'daily', 'xp', 'level', 'rank'], reply: "For daily quests, focus on the 'Ancient Trials' chain — it gives 3,500 XP total. Pro tip: stacking 3 daily quests before claiming doubles your streak bonus! 🎯" },
+  { keywords: ['game', 'recommend', 'play', 'rpg', 'fps'], reply: "Based on your profile, I'd recommend Shadow Realm Online — it matches your RPG-heavy playstyle and gives 500 XP per dungeon run. Perfect for your level! 🎮" },
+  { keywords: ['strategy', 'tips', 'pro', 'trick', 'how'], reply: "Here's a pro strategy: rotate between PvP and PvE content to avoid burnout penalties. The algorithm favors diverse playstyles — you'll earn 20% more XP! 🧠" },
+  { keywords: ['hello', 'hi', 'hey', 'halo', 'hai'], reply: "Hey Commander! Ready for some gaming? I've got your quest log ready and there's a limited-time event with double XP in Mystic Forge! 🔥" },
+  { keywords: ['help', 'bantu', 'tutorial', 'panduan'], reply: "I can help with: tracking your daily quests, recommending games based on your playstyle, XP optimization strategies, and explaining game mechanics. What do you need? 💜" },
+  { keywords: ['terima kasih', 'thanks', 'thank', 'makasih'], reply: "You're welcome, Commander! Keep grinding and you'll hit Diamond rank in no time. I'm always here if you need me! ⭐" },
+]
+
+const getReply = (text) => {
+  const lower = text.toLowerCase()
+  for (const item of keywordReplies) {
+    if (item.keywords.some(k => lower.includes(k))) return item.reply
+  }
+  const fallbacks = [
+    "Interesting! Based on your activity patterns, I think you'd benefit from exploring the Mystic Forge event this week. Double XP is live! ✨",
+    "Great question! I've analyzed your recent sessions and there's an optimal quest path that could boost your XP gain by 30%. Want me to elaborate? 🎯",
+    "I see you're curious! Right now the community is buzzing about the new PvP season rewards. Legends Arena has a limited-time 10,000 XP grand prize! 🏆",
+    "Good thinking! My data shows that players who complete at least 3 daily quests in a row get a hidden streak multiplier. You're on the right track! 🔥",
+  ]
+  return fallbacks[Math.floor(Math.random() * fallbacks.length)]
+}
 
 const FeliaAI = () => {
   const [messages, setMessages] = React.useState(initialMessages);
@@ -51,14 +67,13 @@ const FeliaAI = () => {
     setIsTyping(true);
 
     setTimeout(() => {
-      const reply = feliaReplies[Math.floor(Math.random() * feliaReplies.length)];
       setMessages(prev => [...prev, {
         role: 'felia',
-        content: reply,
+        content: getReply(text),
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       }]);
       setIsTyping(false);
-    }, 1200 + Math.random() * 1000);
+    }, 800 + Math.random() * 600);
   };
 
   const handleKeyDown = (e) => {
@@ -84,7 +99,7 @@ const FeliaAI = () => {
               <span className="felia-chat-header__status">Online — Your personal AI companion</span>
             </div>
           </div>
-          <button className="btn-ghost" style={{ padding: '8px 14px' }}>
+          <button className="btn-ghost" style={{ padding: '8px 14px' }} onClick={() => { setMessages(initialMessages); setInput(''); }}>
             <RefreshCw size={14} /> New Chat
           </button>
         </div>

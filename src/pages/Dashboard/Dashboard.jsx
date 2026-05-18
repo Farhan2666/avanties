@@ -8,20 +8,9 @@ import {
 } from 'lucide-react';
 import './Dashboard.css';
 
-const stats = [
-  { title: 'Total XP', value: '124,500', icon: Zap, trend: '+12%', color: '#00f2ff' },
-  { title: 'Achievements', value: '48 / 150', icon: Award, trend: null, color: '#7000ff' },
-  { title: 'Play Time', value: '156h 20m', icon: Clock, trend: '+3h', color: '#ff2d95' },
-  { title: 'Win Rate', value: '67.3%', icon: TrendingUp, trend: '+2.1%', color: '#00ff88' },
-];
-
-const recentActivity = [
-  { action: 'Completed Quest: Shadow Realm', xp: 500, time: '2h ago', type: 'quest' },
-  { action: 'Won PvP Match vs. NightOwl', xp: 250, time: '4h ago', type: 'pvp' },
-  { action: 'Unlocked Achievement: First Blood', xp: 1000, time: '6h ago', type: 'achievement' },
-  { action: 'Joined Clan: Cyber Knights', xp: 100, time: '1d ago', type: 'social' },
-  { action: 'Completed Daily Login Streak (7 days)', xp: 750, time: '1d ago', type: 'streak' },
-];
+const today = new Date();
+const dayOfWeek = today.getDay();
+const streakDays = dayOfWeek === 0 ? 7 : dayOfWeek;
 
 const quickActions = [
   { icon: Gamepad2, label: 'Gaming Hub', desc: 'Explore games', path: '/gaming' },
@@ -34,12 +23,25 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const { user } = useUser();
 
+  const xpProgress = user.xp_max > 0 ? Math.round((user.xp / user.xp_max) * 100) : 0
+
+  const stats = [
+    { title: 'Total XP', value: (user.total_xp || user.xp || 0).toLocaleString(), icon: Zap, trend: `Lv.${user.level || 1}`, color: '#00f2ff' },
+    { title: 'Level Progress', value: `${xpProgress}%`, icon: Award, trend: `${user.xp?.toLocaleString() || 0} / ${user.xp_max?.toLocaleString() || 1000}`, color: '#7000ff' },
+    { title: 'Current Rank', value: user.rank || 'Newbie', icon: TrendingUp, trend: null, color: '#ff2d95' },
+    { title: 'XP to Next', value: ((user.xp_max || 1000) - (user.xp || 0)).toLocaleString(), icon: Clock, trend: null, color: '#00ff88' },
+  ]
+
+  const questsPending = 3
+  const hoursSinceMidnight = today.getHours()
+  const greetings = hoursSinceMidnight < 12 ? 'Good morning' : hoursSinceMidnight < 18 ? 'Good afternoon' : 'Good evening'
+
   return (
     <div className="page-container">
       {/* Header */}
       <header className="dash-header">
         <div className="dash-header__left">
-          <p className="dash-header__greeting">Welcome back, {user.displayName} ✨</p>
+          <p className="dash-header__greeting">{greetings}, {user.displayName} ✨</p>
           <h1 className="dash-header__title">Dashboard</h1>
         </div>
         <div className="dash-header__right">
@@ -63,7 +65,7 @@ const Dashboard = () => {
         <div className="felia-banner__content">
           <h3 className="felia-banner__name">Felia AI</h3>
           <p className="felia-banner__msg">
-            "You have <strong>3 daily quests</strong> pending. Ready to level up today? 🚀"
+            "You have <strong>{questsPending} daily quests</strong> pending. Ready to level up today? 🚀"
           </p>
         </div>
         <button className="btn-primary" onClick={(e) => { e.stopPropagation(); navigate('/felia'); }}>
@@ -97,14 +99,18 @@ const Dashboard = () => {
             <button onClick={() => navigate('/xp')}>View All →</button>
           </div>
           <div className="activity-list">
-            {recentActivity.map((a, i) => (
+            {[
+              { action: `Leveled up to ${user.level || 1}`, xp: user.xp || 0, time: 'Today', type: 'achievement' },
+              { action: `Rank achieved: ${user.rank || 'Newbie'}`, xp: 0, time: 'Today', type: 'quest' },
+              { action: 'Joined Avanties platform', xp: 100, time: 'First day', type: 'social' },
+            ].map((a, i) => (
               <div key={i} className="activity-item glass-panel" style={{ animationDelay: `${i * 0.06}s` }}>
                 <div className="activity-item__dot" data-type={a.type} />
                 <div className="activity-item__info">
                   <p className="activity-item__action">{a.action}</p>
                   <span className="activity-item__time">{a.time}</span>
                 </div>
-                <span className="activity-item__xp">+{a.xp} XP</span>
+                {a.xp > 0 && <span className="activity-item__xp">+{a.xp} XP</span>}
               </div>
             ))}
           </div>
@@ -135,13 +141,13 @@ const Dashboard = () => {
             </div>
             <div className="streak-card__days">
               {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
-                <div key={i} className={`streak-day ${i < 5 ? 'streak-day--done' : ''}`}>
+                <div key={i} className={`streak-day ${i < streakDays ? 'streak-day--done' : ''}`}>
                   <Star size={14} />
                   <span>{d}</span>
                 </div>
               ))}
             </div>
-            <p className="streak-card__info">🔥 5-day streak! 2 more for bonus XP</p>
+            <p className="streak-card__info">🔥 {streakDays}-day streak! {7 - streakDays} more for bonus XP</p>
           </div>
         </section>
       </div>

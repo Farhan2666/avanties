@@ -1,7 +1,8 @@
 import React from 'react';
+import { useUser } from '../../context/UserContext';
 import {
-  Zap, Target, Trophy, Star, Clock, ChevronRight,
-  Flame, Gift, Lock, CheckCircle2, Circle
+  Zap, Target, Trophy, Star, Clock,
+  Flame, CheckCircle2, Circle
 } from 'lucide-react';
 import './XPSystem.css';
 
@@ -44,6 +45,14 @@ const getRarityColor = (rarity) => {
 };
 
 const XPSystem = () => {
+  const { user } = useUser()
+  const level = user.level || 1
+  const xp = user.xp || 0
+  const xpMax = user.xp_max || 1000
+  const totalXp = user.total_xp || 0
+  const xpProgress = xpMax > 0 ? Math.round((xp / xpMax) * 100) : 0
+  const rank = user.rank || 'Newbie'
+
   return (
     <div className="page-container">
       <div className="page-header">
@@ -55,38 +64,66 @@ const XPSystem = () => {
       <section className="xp-overview glass-panel">
         <div className="xp-overview__main">
           <div className="xp-overview__level">
-            <span className="xp-overview__level-badge">24</span>
+            <span className="xp-overview__level-badge">{level}</span>
             <div className="xp-overview__level-info">
-              <h3>Level 24 — <span className="text-gradient">Elite Guardian</span></h3>
-              <p>12,450 / 15,000 XP to Level 25</p>
+              <h3>Level {level} — <span className="text-gradient">{rank}</span></h3>
+              <p>{xp.toLocaleString()} / {xpMax.toLocaleString()} XP to Level {level + 1}</p>
             </div>
           </div>
           <div className="progress-bar" style={{ height: 8 }}>
-            <div className="progress-bar-fill" style={{ width: '83%' }} />
+            <div className="progress-bar-fill" style={{ width: `${xpProgress}%` }} />
           </div>
         </div>
         <div className="xp-overview__stats">
           <div className="xp-mini-stat">
             <Flame size={18} style={{ color: '#ffaa00' }} />
             <div>
-              <span className="xp-mini-stat__value">5 Days</span>
+              <span className="xp-mini-stat__value">{level} Days</span>
               <span className="xp-mini-stat__label">Streak</span>
             </div>
           </div>
           <div className="xp-mini-stat">
             <Trophy size={18} style={{ color: '#7000ff' }} />
             <div>
-              <span className="xp-mini-stat__value">#12</span>
+              <span className="xp-mini-stat__value">#{level * 2 + 10}</span>
               <span className="xp-mini-stat__label">Global Rank</span>
             </div>
           </div>
           <div className="xp-mini-stat">
             <Star size={18} style={{ color: '#00f2ff' }} />
             <div>
-              <span className="xp-mini-stat__value">124,500</span>
+              <span className="xp-mini-stat__value">{totalXp.toLocaleString() || xp.toLocaleString()}</span>
               <span className="xp-mini-stat__label">Total XP</span>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* Leaderboard */}
+      <section className="xp-leaderboard-section" style={{ marginTop: 24 }}>
+        <div className="section-title">
+          <h2>Leaderboard</h2>
+        </div>
+        <div className="leaderboard-list glass-panel">
+          {[
+            { name: 'DragonSlayer99', xp: '245,000', rank: 1, level: 52 },
+            { name: 'NightHawk', xp: '198,500', rank: 2, level: 47 },
+            { name: 'PixelQueen', xp: '187,200', rank: 3, level: 45 },
+            { name: 'CyberWolf', xp: '156,800', rank: 4, level: 41 },
+            { name: user.displayName || 'You', xp: totalXp.toLocaleString() || xp.toLocaleString(), rank: 5, level: level, isUser: true },
+          ].map((p, i) => (
+            <div key={i} className={`leaderboard-item ${p.isUser ? 'leaderboard-item--user' : ''}`}>
+              <span className={`leaderboard-item__rank ${p.rank <= 3 ? 'leaderboard-item__rank--top' : ''}`}>
+                {p.rank <= 3 ? ['🥇','🥈','🥉'][p.rank - 1] : `#${p.rank}`}
+              </span>
+              <div className="leaderboard-item__avatar" style={{ background: p.isUser ? 'var(--accent-gradient)' : `hsl(${p.rank * 60}, 50%, 40%)` }} />
+              <div className="leaderboard-item__info">
+                <span className="leaderboard-item__name">{p.name}</span>
+                <span className="leaderboard-item__level">Lv. {p.level}</span>
+              </div>
+              <span className="leaderboard-item__xp">{p.xp} XP</span>
+            </div>
+          ))}
         </div>
       </section>
 
@@ -181,28 +218,7 @@ const XPSystem = () => {
             </div>
           </section>
 
-          {/* Leaderboard */}
-          <section style={{ marginTop: 24 }}>
-            <div className="section-title">
-              <h2>Leaderboard</h2>
-              <button>View Full →</button>
-            </div>
-            <div className="leaderboard-list glass-panel">
-              {leaderboard.map((p, i) => (
-                <div key={i} className={`leaderboard-item ${p.isUser ? 'leaderboard-item--user' : ''}`}>
-                  <span className={`leaderboard-item__rank ${p.rank <= 3 ? 'leaderboard-item__rank--top' : ''}`}>
-                    {p.rank <= 3 ? ['🥇','🥈','🥉'][p.rank - 1] : `#${p.rank}`}
-                  </span>
-                  <div className="leaderboard-item__avatar" style={{ background: p.isUser ? 'var(--accent-gradient)' : `hsl(${p.rank * 60}, 50%, 40%)` }} />
-                  <div className="leaderboard-item__info">
-                    <span className="leaderboard-item__name">{p.name}</span>
-                    <span className="leaderboard-item__level">Lv. {p.level}</span>
-                  </div>
-                  <span className="leaderboard-item__xp">{p.xp} XP</span>
-                </div>
-              ))}
-            </div>
-          </section>
+
         </aside>
       </div>
     </div>

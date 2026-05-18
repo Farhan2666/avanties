@@ -3,6 +3,99 @@ import { supabase } from '../lib/supabase';
 
 const UserContext = createContext();
 
+let likesTableReady = null;
+
+const isMissingTableError = (error) =>
+  error?.code === 'PGRST205' ||
+  error?.code === '42P01' ||
+  error?.message?.includes('post_likes');
+
+const checkLikesTable = async () => {
+  if (likesTableReady !== null) return likesTableReady;
+  const { error } = await supabase.from('post_likes').select('post_id').limit(1);
+  likesTableReady = !error;
+  return likesTableReady;
+};
+
+const normalizePostId = (id) => Number(id);
+
+const formatCommentRow = (c, profileMap = {}) => ({
+  id: c.id,
+  text: c.content,
+  author:
+    c.profiles?.display_name ||
+    profileMap[c.author_id]?.display_name ||
+    'Unknown',
+  avatar: c.profiles?.avatar_url || profileMap[c.author_id]?.avatar_url,
+  time: new Date(c.created_at).toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+  }),
+});
+
+const loadCommentsForPosts = async (postIds) => {
+  const ids = [...new Set(postIds.map(normalizePostId).filter(Boolean))];
+  if (!ids.length) return {};
+
+  let rows = [];
+
+  const joined = await supabase
+    .from('comments')
+    .select(
+      `id, content, created_at, post_id, author_id, profiles!author_id (display_name, avatar_url)`
+    )
+    .in('post_id', ids)
+    .order('created_at', { ascending: true });
+
+  if (!joined.error && joined.data) {
+    rows = joined.data;
+  } else {
+    const plain = await supabase
+      .from('comments')
+      .select('id, content, created_at, post_id, author_id')
+      .in('post_id', ids)
+      .order('created_at', { ascending: true });
+
+    rows = plain.data || [];
+
+    if (rows.length) {
+      const authorIds = [...new Set(rows.map((c) => c.author_id).filter(Boolean))];
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, display_name, avatar_url')
+        .in('id', authorIds);
+
+      const profileMap = Object.fromEntries((profiles || []).map((p) => [p.id, p]));
+      rows = rows.map((c) => ({ ...c, profiles: profileMap[c.author_id] }));
+    }
+  }
+
+  const byPost = {};
+  for (const c of rows) {
+    const pid = normalizePostId(c.post_id);
+    if (!byPost[pid]) byPost[pid] = [];
+    byPost[pid].push(formatCommentRow(c));
+  }
+  return byPost;
+};
+
+const getLikedPostIds = async (userId, authUser = null) => {
+  if (!userId) return new Set();
+
+  if (await checkLikesTable()) {
+    const { data, error } = await supabase
+      .from('post_likes')
+      .select('post_id')
+      .eq('user_id', userId);
+    if (!error && data) return new Set(data.map((l) => l.post_id));
+  }
+
+  const metaLikes = authUser?.user_metadata?.liked_posts || [];
+  return new Set(metaLikes);
+};
+
+const POSTS_PAGE_SIZE = 20;
+
 const defaultUser = {
   display_name: 'New Player',
   displayName: 'New Player', // For UI
@@ -23,23 +116,25 @@ export const UserProvider = ({ children }) => {
   const [user, setUser] = useState(defaultUser);
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [postsLoading, setPostsLoading] = useState(false);
+  const [commentsLoadingId, setCommentsLoadingId] = useState(null);
 
   useEffect(() => {
-    // Check active session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session) fetchProfile(session.user.id);
-      else setLoading(false);
-    });
-
-    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
-      if (session) fetchProfile(session.user.id);
-      else {
+      if (session) {
+        fetchProfile(session.user.id);
+        fetchPosts(session.user.id, session.user);
+      } else {
         setUser(defaultUser);
+        setPosts([]);
         setLoading(false);
+        setPostsLoading(false);
       }
+    });
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) setLoading(false);
     });
 
     return () => subscription.unsubscribe();
@@ -59,12 +154,12 @@ export const UserProvider = ({ children }) => {
           .from('profiles')
           .insert([{ 
             id: userId, 
-            display_name: 'Supreme Admin', 
-            username: 'admin_' + userId.substring(0,6), 
-            rank: 'OWNER', 
-            level: 99,
-            xp: 999999,
-            xp_max: 999999
+            display_name: 'New Player', 
+            username: 'player_' + userId.substring(0,6), 
+            rank: 'Newbie', 
+            level: 1,
+            xp: 0,
+            xp_max: 1000
           }])
           .select()
           .single();
@@ -89,7 +184,6 @@ export const UserProvider = ({ children }) => {
         });
       }
       
-      fetchPosts();
     } catch (error) {
       console.error('Error fetching profile:', error);
     } finally {
@@ -97,49 +191,105 @@ export const UserProvider = ({ children }) => {
     }
   };
 
-  const fetchPosts = async () => {
+  const fetchPosts = async (userId = null, authUser = null) => {
+    setPostsLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('posts')
-        .select(`
-          *,
-          profiles:author_id (display_name, rank, avatar_url),
-          comments_data:comments (
-            id,
-            content,
-            created_at,
-            author:author_id (display_name, avatar_url)
-          )
-        `)
-        .order('created_at', { ascending: false });
+      const [joined, likedPostIds] = await Promise.all([
+        supabase
+          .from('posts')
+          .select(`
+            *,
+            profiles!author_id (display_name, rank, avatar_url)
+          `)
+          .order('created_at', { ascending: false })
+          .limit(POSTS_PAGE_SIZE),
+        userId ? getLikedPostIds(userId, authUser).catch(() => new Set()) : Promise.resolve(new Set()),
+      ]);
+
+      let data = joined.data;
+      let error = joined.error;
+
+      if (error) {
+        const plain = await supabase
+          .from('posts')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(POSTS_PAGE_SIZE);
+        data = plain.data;
+        error = plain.error;
+
+        if (!error && data?.length) {
+          const authorIds = [...new Set(data.map((p) => p.author_id).filter(Boolean))];
+          const { data: profiles } = await supabase
+            .from('profiles')
+            .select('id, display_name, rank, avatar_url')
+            .in('id', authorIds);
+
+          const profileMap = Object.fromEntries((profiles || []).map((pr) => [pr.id, pr]));
+          data = data.map((p) => ({ ...p, profiles: profileMap[p.author_id] }));
+        }
+      }
 
       if (error) throw error;
-      
+
       if (data) {
-        const formattedPosts = data.map(p => ({
+        let localImages = {};
+        try { localImages = JSON.parse(localStorage.getItem('postImages') || '{}'); } catch {}
+
+        const formattedPosts = data.map((p) => ({
           id: p.id,
           author: p.profiles?.display_name || 'Unknown',
           rank: p.profiles?.rank || 'Newbie',
           avatar: p.profiles?.avatar_url,
           time: new Date(p.created_at).toLocaleDateString(),
           content: p.content,
-          likes: p.likes,
-          comments: p.comments,
-          shares: p.shares,
+          imageUrl: p.image_url || localImages[p.id] || null,
+          likes: p.likes ?? 0,
+          comments: p.comments ?? 0,
+          shares: p.shares ?? 0,
           pinned: p.pinned,
-          isOwn: p.author_id === session?.user?.id,
-          realComments: (p.comments_data || []).map(c => ({
-            id: c.id,
-            text: c.content,
-            author: c.author?.display_name || 'Unknown',
-            avatar: c.author?.avatar_url,
-            time: new Date(c.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          }))
+          isOwn: p.author_id === userId,
+          likedByMe: likedPostIds.has(p.id),
+          is_hidden: p.is_hidden || false,
+          reports_count: p.reports_count || 0,
+          realComments: [],
+          commentsLoaded: false,
         }));
         setPosts(formattedPosts);
       }
+    } catch (err) {
+      console.error('Error fetching posts:', err);
+    } finally {
+      setPostsLoading(false);
+    }
+  };
+
+  const fetchPostComments = async (postId) => {
+    const pid = normalizePostId(postId);
+    const existing = posts.find((p) => normalizePostId(p.id) === pid);
+    if (existing?.commentsLoaded) return;
+
+    setCommentsLoadingId(pid);
+    try {
+      const commentsByPost = await loadCommentsForPosts([pid]);
+      const comments = commentsByPost[pid] || [];
+
+      setPosts((prev) =>
+        prev.map((p) =>
+          normalizePostId(p.id) === pid
+            ? {
+                ...p,
+                realComments: comments,
+                comments: comments.length || p.comments,
+                commentsLoaded: true,
+              }
+            : p
+        )
+      );
     } catch (error) {
-      console.error('Error fetching posts:', error);
+      console.error('Error fetching comments:', error);
+    } finally {
+      setCommentsLoadingId(null);
     }
   };
 
@@ -173,22 +323,33 @@ export const UserProvider = ({ children }) => {
     }
   };
 
-  const addPost = async (content) => {
+  const addPost = async (content, imageUrl = null) => {
     if (!session?.user?.id) return;
 
     try {
+      const postData = {
+        author_id: session.user.id,
+        content: content,
+        image_url: imageUrl,
+      };
+
       const { data, error } = await supabase
         .from('posts')
-        .insert([{
-          author_id: session.user.id,
-          content: content,
-        }])
+        .insert([postData])
         .select()
         .single();
 
       if (error) throw error;
 
-      // Optimistically add to UI
+      // Store image in localStorage by post ID (DB column may not exist yet)
+      if (imageUrl && data?.id) {
+        try {
+          const stored = JSON.parse(localStorage.getItem('postImages') || '{}');
+          stored[data.id] = imageUrl;
+          localStorage.setItem('postImages', JSON.stringify(stored));
+        } catch (e) { console.warn('Failed to store image locally:', e); }
+      }
+
       const newPost = {
         id: data.id,
         author: user.displayName || user.display_name,
@@ -196,11 +357,17 @@ export const UserProvider = ({ children }) => {
         avatar: user.avatar || user.avatar_url,
         time: 'Just now',
         content,
+        imageUrl: imageUrl,
         likes: 0,
         comments: 0,
         shares: 0,
         pinned: false,
         isOwn: true,
+        likedByMe: false,
+        is_hidden: false,
+        reports_count: 0,
+        realComments: [],
+        commentsLoaded: true,
       };
       setPosts(prev => [newPost, ...prev]);
     } catch (error) {
@@ -208,87 +375,188 @@ export const UserProvider = ({ children }) => {
     }
   };
 
-  const likePost = async (postId) => {
-    // Optimistic UI update
-    setPosts(prev => prev.map(p =>
-      p.id === postId ? { ...p, likes: p.likes + 1 } : p
-    ));
-    
-    // Prevent DB update for mock posts
-    if (typeof postId === 'string' && postId.startsWith('mock')) return;
+  const toggleLike = async (postId) => {
+    if (!session?.user?.id) return;
+    const userId = session.user.id;
+    const post = posts.find((p) => p.id === postId);
+    if (!post) return;
 
-    // Real DB update
+    const wasLiked = post.likedByMe;
+
+    setPosts((prev) =>
+      prev.map((p) =>
+        p.id === postId
+          ? {
+              ...p,
+              likedByMe: !wasLiked,
+              likes: Math.max(0, (p.likes ?? 0) + (wasLiked ? -1 : 1)),
+            }
+          : p
+      )
+    );
+
     try {
-      const { data: currentPost, error: fetchError } = await supabase
-        .from('posts')
-        .select('likes')
-        .eq('id', postId)
-        .single();
-        
-      if (fetchError) throw fetchError;
-      
-      await supabase
-        .from('posts')
-        .update({ likes: (currentPost.likes || 0) + 1 })
-        .eq('id', postId);
+      if (await checkLikesTable()) {
+        if (wasLiked) {
+          const { error } = await supabase
+            .from('post_likes')
+            .delete()
+            .eq('post_id', postId)
+            .eq('user_id', userId);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase
+            .from('post_likes')
+            .insert({ post_id: postId, user_id: userId });
+          if (error) throw error;
+        }
+      } else {
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        const current = authUser?.user_metadata?.liked_posts || [];
+        const updated = wasLiked
+          ? current.filter((id) => id !== postId)
+          : [...new Set([...current, postId])];
+
+        const { error: metaError } = await supabase.auth.updateUser({
+          data: { liked_posts: updated },
+        });
+        if (metaError) throw metaError;
+
+        if (wasLiked) {
+          await supabase.rpc('decrement_likes', { post_id: postId });
+        } else {
+          await supabase.rpc('increment_likes', { post_id: postId });
+        }
+      }
     } catch (error) {
-      console.error('Error liking post:', error);
+      console.error('Error toggling like:', error);
+      await fetchPosts(userId);
     }
   };
 
   const commentPost = async (postId, content) => {
-    if (!session?.user?.id || !content) return;
+    if (!session?.user?.id || !content?.trim()) {
+      return { ok: false, message: 'Login dulu untuk berkomentar.' };
+    }
+
+    const pid = normalizePostId(postId);
+    const trimmed = content.trim();
 
     try {
-      // 1. Insert real comment
-      const { data: newCommentData, error: commentError } = await supabase
+      const { data, error } = await supabase
         .from('comments')
-        .insert([{
-          post_id: postId,
+        .insert({
+          post_id: pid,
           author_id: session.user.id,
-          content: content
-        }])
-        .select(`
-          id,
-          content,
-          created_at,
-          author:author_id (display_name, avatar_url)
-        `)
+          content: trimmed,
+        })
+        .select('id, content, created_at')
         .single();
 
-      if (commentError) throw commentError;
+      if (error) throw error;
 
-      // 2. Update post comment count
-      const { data: currentPost } = await supabase
-        .from('posts')
-        .select('comments')
-        .eq('id', postId)
-        .single();
-
-      await supabase
-        .from('posts')
-        .update({ comments: (currentPost?.comments || 0) + 1 })
-        .eq('id', postId);
-
-      // 3. Update local state optimistically
       const formattedComment = {
-        id: newCommentData.id,
-        text: newCommentData.content,
-        author: newCommentData.author?.display_name || 'Unknown',
-        avatar: newCommentData.author?.avatar_url,
-        time: 'Just now'
+        id: data.id,
+        text: data.content,
+        author: user.displayName || user.display_name || 'Unknown',
+        avatar: user.avatar || user.avatar_url,
+        time: 'Baru saja',
       };
 
-      setPosts(prev => prev.map(p =>
-        p.id === postId ? { 
-          ...p, 
-          comments: p.comments + 1,
-          realComments: [...(p.realComments || []), formattedComment]
-        } : p
-      ));
+      setPosts((prev) =>
+        prev.map((p) => {
+          if (normalizePostId(p.id) !== pid) return p;
+          const nextComments = [...(p.realComments || []), formattedComment];
+          return {
+            ...p,
+            realComments: nextComments,
+            comments: nextComments.length,
+            commentsLoaded: true,
+          };
+        })
+      );
 
+      return { ok: true };
     } catch (error) {
-      console.error('Error commenting:', error);
+      console.error('Error saving comment:', error);
+      return {
+        ok: false,
+        message: error.message || 'Gagal menyimpan komentar. Coba lagi.',
+      };
+    }
+  };
+
+  const deletePost = async (postId) => {
+    try {
+      const { error } = await supabase.from('posts').delete().eq('id', postId);
+      if (error) throw error;
+      setPosts(prev => prev.filter(p => p.id !== postId));
+    } catch (err) {
+      console.error('Error deleting post:', err);
+    }
+  };
+
+  const reportPost = async (postId) => {
+    if (!session?.user?.id) return;
+    const userId = session.user.id;
+    try {
+      const [{ data: post }, { count: totalUsers }] = await Promise.all([
+        supabase.from('posts').select('reports_count, reported_by').eq('id', postId).single(),
+        supabase.from('profiles').select('*', { count: 'exact', head: true })
+      ]);
+      
+      if (!post) return;
+      const reportedBy = post.reported_by || [];
+      if (reportedBy.includes(userId)) {
+        alert('Anda sudah melaporkan post ini.');
+        return; 
+      }
+      
+      const newReportsCount = (post.reports_count || 0) + 1;
+      const newReportedBy = [...reportedBy, userId];
+      
+      const threshold = Math.max(1, Math.floor((totalUsers || 1) / 2));
+      const isHidden = newReportsCount >= threshold;
+
+      const { error } = await supabase.from('posts').update({
+        reports_count: newReportsCount,
+        reported_by: newReportedBy,
+        is_hidden: isHidden
+      }).eq('id', postId);
+
+      if (error) throw error;
+
+      setPosts(prev => prev.map(p => p.id === postId ? {
+        ...p, 
+        reports_count: newReportsCount, 
+        is_hidden: isHidden 
+      } : p));
+      
+      if (isHidden) {
+        alert('Post telah disembunyikan karena jumlah laporan mencapai batas.');
+      } else {
+        alert('Laporan berhasil dikirim.');
+      }
+    } catch (err) {
+      console.error('Error reporting post:', err);
+    }
+  };
+
+  const restorePost = async (postId) => {
+    try {
+      const { error } = await supabase.from('posts').update({
+        is_hidden: false,
+        reports_count: 0,
+        reported_by: []
+      }).eq('id', postId);
+      
+      if (error) throw error;
+      
+      setPosts(prev => prev.map(p => p.id === postId ? {
+        ...p, is_hidden: false, reports_count: 0 
+      } : p));
+    } catch (err) {
+      console.error('Error restoring post:', err);
     }
   };
 
@@ -297,7 +565,11 @@ export const UserProvider = ({ children }) => {
   };
 
   return (
-    <UserContext.Provider value={{ session, user, updateUser, posts, addPost, likePost, commentPost, logout, loading }}>
+    <UserContext.Provider value={{
+      session, user, updateUser, posts, addPost, toggleLike, commentPost,
+      fetchPostComments, fetchPosts, logout, loading, postsLoading, commentsLoadingId,
+      deletePost, reportPost, restorePost
+    }}>
       {children}
     </UserContext.Provider>
   );
