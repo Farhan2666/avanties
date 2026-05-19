@@ -53,6 +53,8 @@ const Community = () => {
   const [expandedComments, setExpandedComments] = React.useState(new Set());
   const [newCommentInput, setNewCommentInput] = React.useState({});
   const [commentSending, setCommentSending] = React.useState({});
+  const [confirmDeleteId, setConfirmDeleteId] = React.useState(null);
+  const [confirmReportId, setConfirmReportId] = React.useState(null);
 
   const handlePost = () => {
     if (postContent.trim()) {
@@ -298,15 +300,51 @@ const Community = () => {
                 </button>
                 
                 {(isAdminOrOwner || post.isOwn) && (
-                  <button className="post-action" style={{ color: '#ef4444' }} onClick={() => { if(window.confirm('Yakin ingin menghapus postingan ini?')) deletePost(post.id); }} title="Hapus Postingan">
-                    <Trash2 size={16} />
-                  </button>
+                  confirmDeleteId === post.id ? (
+                    <div className="post-action" style={{ display: 'flex', gap: '8px', alignItems: 'center', background: 'rgba(239, 68, 68, 0.1)', padding: '4px 10px', borderRadius: '8px' }}>
+                      <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: 'bold' }}>Hapus?</span>
+                      <button 
+                        style={{ background: '#ef4444', color: 'white', border: 'none', fontSize: '11px', fontWeight: 'bold', padding: '2px 8px', borderRadius: '4px', cursor: 'pointer' }} 
+                        onClick={() => { deletePost(post.id); setConfirmDeleteId(null); }}
+                      >
+                        Ya
+                      </button>
+                      <button 
+                        style={{ background: 'transparent', color: 'var(--text-secondary)', border: 'none', fontSize: '11px', padding: '2px 6px', borderRadius: '4px', cursor: 'pointer' }} 
+                        onClick={() => setConfirmDeleteId(null)}
+                      >
+                        Batal
+                      </button>
+                    </div>
+                  ) : (
+                    <button className="post-action" style={{ color: '#ef4444' }} onClick={() => setConfirmDeleteId(post.id)} title="Hapus Postingan">
+                      <Trash2 size={16} />
+                    </button>
+                  )
                 )}
 
                 {!(post.rank?.toLowerCase() === 'admin' || post.rank?.toLowerCase() === 'owner') && !post.isOwn && (
-                  <button className="post-action" style={{ color: '#eab308' }} onClick={() => { if(window.confirm('Laporkan postingan ini karena melanggar aturan?')) reportPost(post.id); }} title="Laporkan Postingan">
-                    <AlertTriangle size={16} />
-                  </button>
+                  confirmReportId === post.id ? (
+                    <div className="post-action" style={{ display: 'flex', gap: '8px', alignItems: 'center', background: 'rgba(234, 179, 8, 0.1)', padding: '4px 10px', borderRadius: '8px' }}>
+                      <span style={{ fontSize: '11px', color: '#eab308', fontWeight: 'bold' }}>Laporkan?</span>
+                      <button 
+                        style={{ background: '#eab308', color: 'black', border: 'none', fontSize: '11px', fontWeight: 'bold', padding: '2px 8px', borderRadius: '4px', cursor: 'pointer' }} 
+                        onClick={() => { reportPost(post.id); setConfirmReportId(null); }}
+                      >
+                        Ya
+                      </button>
+                      <button 
+                        style={{ background: 'transparent', color: 'var(--text-secondary)', border: 'none', fontSize: '11px', padding: '2px 6px', borderRadius: '4px', cursor: 'pointer' }} 
+                        onClick={() => setConfirmReportId(null)}
+                      >
+                        Batal
+                      </button>
+                    </div>
+                  ) : (
+                    <button className="post-action" style={{ color: '#eab308' }} onClick={() => setConfirmReportId(post.id)} title="Laporkan Postingan">
+                      <AlertTriangle size={16} />
+                    </button>
+                  )
                 )}
               </div>
 
