@@ -87,10 +87,10 @@ const getLikedPostIds = async (userId, authUser = null) => {
       .from('post_likes')
       .select('post_id')
       .eq('user_id', userId);
-    if (!error && data) return new Set(data.map((l) => l.post_id));
+    if (!error && data) return new Set(data.map((l) => normalizePostId(l.post_id)));
   }
 
-  const metaLikes = authUser?.user_metadata?.liked_posts || [];
+  const metaLikes = (authUser?.user_metadata?.liked_posts || []).map(normalizePostId);
   return new Set(metaLikes);
 };
 
@@ -237,7 +237,7 @@ export const UserProvider = ({ children }) => {
         try { localImages = JSON.parse(localStorage.getItem('postImages') || '{}'); } catch {}
 
         const formattedPosts = data.map((p) => ({
-          id: p.id,
+          id: normalizePostId(p.id),
           author: p.profiles?.display_name || 'Unknown',
           rank: p.profiles?.rank || 'Newbie',
           avatar: p.profiles?.avatar_url,
@@ -249,7 +249,7 @@ export const UserProvider = ({ children }) => {
           shares: p.shares ?? 0,
           pinned: p.pinned,
           isOwn: p.author_id === userId,
-          likedByMe: likedPostIds.has(p.id),
+          likedByMe: likedPostIds.has(normalizePostId(p.id)),
           is_hidden: p.is_hidden || false,
           reports_count: p.reports_count || 0,
           realComments: [],
@@ -378,14 +378,15 @@ export const UserProvider = ({ children }) => {
   const toggleLike = async (postId) => {
     if (!session?.user?.id) return;
     const userId = session.user.id;
-    const post = posts.find((p) => p.id === postId);
+    const pid = normalizePostId(postId);
+    const post = posts.find((p) => normalizePostId(p.id) === pid);
     if (!post) return;
 
     const wasLiked = post.likedByMe;
 
     setPosts((prev) =>
       prev.map((p) =>
-        p.id === postId
+        normalizePostId(p.id) === pid
           ? {
               ...p,
               likedByMe: !wasLiked,
@@ -401,32 +402,41 @@ export const UserProvider = ({ children }) => {
           const { error } = await supabase
             .from('post_likes')
             .delete()
-            .eq('post_id', postId)
+            .eq('post_id', pid)
             .eq('user_id', userId);
           if (error) throw error;
         } else {
           const { error } = await supabase
             .from('post_likes')
-            .insert({ post_id: postId, user_id: userId });
+            .insert({ post_id: pid, user_id: userId });
           if (error) throw error;
         }
       } else {
         const { data: { user: authUser } } = await supabase.auth.getUser();
         const current = authUser?.user_metadata?.liked_posts || [];
         const updated = wasLiked
-          ? current.filter((id) => id !== postId)
-          : [...new Set([...current, postId])];
+          ? current.filter((id) => normalizePostId(id) !== pid)
+          : [...new Set([...current.map(normalizePostId), pid])];
 
         const { error: metaError } = await supabase.auth.updateUser({
           data: { liked_posts: updated },
         });
         if (metaError) throw metaError;
 
-        if (wasLiked) {
-          await supabase.rpc('decrement_likes', { post_id: postId });
-        } else {
-          await supabase.rpc('increment_likes', { post_id: postId });
-        }
+        // Fallback robust direct DB update instead of failing RPCs
+        const { data: postData } = await supabase
+          .from('posts')
+          .select('likes')
+          .eq('id', pid)
+          .single();
+        const currentLikes = postData?.likes ?? 0;
+        const newLikes = Math.max(0, currentLikes + (wasLiked ? -1 : 1));
+
+        const { error: updateError } = await supabase
+          .from('posts')
+          .update({ likes: newLikes })
+          .eq('id', pid);
+        if (updateError) throw updateError;
       }
     } catch (error) {
       console.error('Error toggling like:', error);
