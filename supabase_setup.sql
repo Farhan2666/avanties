@@ -88,3 +88,26 @@ DROP TRIGGER IF EXISTS comments_count_trigger ON public.comments;
 CREATE TRIGGER comments_count_trigger
     AFTER INSERT OR DELETE ON public.comments
     FOR EACH ROW EXECUTE FUNCTION public.sync_post_comments_count();
+
+-- 10. Kebijakan Keamanan (RLS Policies) Baru untuk tabel posts
+-- Menghapus policy UPDATE & DELETE lama jika ada untuk menghindari konflik
+DROP POLICY IF EXISTS "Users can update own posts." ON public.posts;
+DROP POLICY IF EXISTS "Users can delete own posts." ON public.posts;
+DROP POLICY IF EXISTS "Users can delete posts." ON public.posts;
+DROP POLICY IF EXISTS "Users can update posts." ON public.posts;
+
+-- Policy untuk mengizinkan semua pengguna terautentikasi melakukan UPDATE (dibutuhkan untuk Likes fallback & Reporting)
+CREATE POLICY "Users can update posts." ON public.posts
+    FOR UPDATE USING (auth.uid() IS NOT NULL);
+
+-- Policy untuk mengizinkan pembuat postingan ATAU admin/owner melakukan DELETE
+CREATE POLICY "Users can delete posts." ON public.posts
+    FOR DELETE USING (
+        auth.uid() = author_id 
+        OR 
+        EXISTS (
+            SELECT 1 FROM public.profiles 
+            WHERE id = auth.uid() 
+            AND (LOWER(rank) LIKE '%admin%' OR LOWER(rank) LIKE '%owner%')
+        )
+    );
