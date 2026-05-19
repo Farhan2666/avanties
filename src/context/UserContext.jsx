@@ -499,10 +499,15 @@ export const UserProvider = ({ children }) => {
   const deletePost = async (postId) => {
     try {
       const { error } = await supabase.from('posts').delete().eq('id', postId);
-      if (error) throw error;
+      if (error) {
+        alert('Gagal menghapus postingan (Database Error): ' + error.message);
+        throw error;
+      }
       setPosts(prev => prev.filter(p => p.id !== postId));
+      alert('Postingan berhasil dihapus!');
     } catch (err) {
       console.error('Error deleting post:', err);
+      alert('Gagal menghapus postingan: ' + err.message);
     }
   };
 
