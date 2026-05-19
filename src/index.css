@@ -359,3 +359,9 @@ img { max-width: 100%; display: block; }
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
+
+@media (max-width: 768px) {
+  .main-content {
+    padding-bottom: 80px;
+  }
+}

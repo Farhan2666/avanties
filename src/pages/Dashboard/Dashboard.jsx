@@ -49,7 +49,7 @@ const Dashboard = () => {
             <span className="dash-header__rank-label">Current Rank</span>
             <span className="dash-header__rank-value text-gradient">{user.rank}</span>
           </div>
-          <div className="dash-header__avatar-ring">
+          <div className="dash-header__avatar-ring" onClick={() => navigate('/settings')} style={{ cursor: 'pointer' }} title="Buka Pengaturan">
             <Avatar src={user.avatar} name={user.displayName} size={48} />
           </div>
         </div>

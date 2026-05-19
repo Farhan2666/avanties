@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { UserProvider, useUser } from './context/UserContext';
 import Sidebar from './components/Sidebar/Sidebar';
+import MobileNav from './components/MobileNav/MobileNav';
 import Dashboard from './pages/Dashboard/Dashboard';
 import GamingHub from './pages/GamingHub/GamingHub';
 import Community from './pages/Community/Community';
@@ -37,6 +38,7 @@ const AppContent = () => {
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </main>
+        <MobileNav />
       </div>
     </Router>
   );

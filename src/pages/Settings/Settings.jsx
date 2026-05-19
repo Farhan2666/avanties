@@ -30,7 +30,7 @@ const loadPref = (key, def) => { try { const v = localStorage.getItem('avanties_
 const savePref = (key, val) => localStorage.setItem('avanties_' + key, JSON.stringify(val))
 
 const Settings = () => {
-  const { user, updateUser } = useUser();
+  const { user, updateUser, logout } = useUser();
   const [notifications, setNotifications] = React.useState(() => loadPref('notifications', true));
   const [sound, setSound] = React.useState(() => loadPref('sound', true));
   const [darkMode, setDarkMode] = React.useState(() => loadPref('darkMode', true));
@@ -141,7 +141,10 @@ const Settings = () => {
                   </div>
                 </div>
               </div>
-              <button className="btn-primary" style={{ marginTop: 16 }} onClick={handleSaveProfile}>Save Changes</button>
+              <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
+                <button className="btn-primary" onClick={handleSaveProfile}>Save Changes</button>
+                <button className="btn-ghost btn-logout-mobile" style={{ borderColor: 'rgba(239, 68, 68, 0.4)', color: '#ef4444' }} onClick={logout}>Logout</button>
+              </div>
             </section>
           )}
 

@@ -197,7 +197,9 @@
 }
 
 @media (max-width: 768px) {
-  .settings-layout { flex-direction: column; }
-  .settings-tabs { flex-direction: row; flex-wrap: wrap; min-width: auto; }
-  .settings-profile-card { flex-direction: column; align-items: center; }
+  .settings-layout { flex-direction: column; gap: 20px; }
+  .settings-tabs { flex-direction: row; flex-wrap: wrap; min-width: auto; gap: 6px; }
+  .settings-tab { padding: 8px 12px; font-size: 13px; flex: 1 1 auto; text-align: center; }
+  .settings-profile-card { flex-direction: column; align-items: center; width: 100%; padding: 20px; }
+  .settings-profile-fields { width: 100%; }
 }

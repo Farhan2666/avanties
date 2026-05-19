@@ -296,3 +296,16 @@
   color: var(--text-secondary);
   font-weight: 500;
 }
+
+@media (max-width: 768px) {
+  .post-card {
+    padding: 16px;
+  }
+  .compose-box {
+    padding: 14px 16px;
+  }
+  .post-action {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+}

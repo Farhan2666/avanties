@@ -242,3 +242,9 @@
   font-size: 11px;
   color: var(--accent-cyan);
 }
+
+@media (max-width: 768px) {
+  .sidebar {
+    display: none;
+  }
+}
