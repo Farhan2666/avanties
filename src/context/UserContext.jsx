@@ -148,7 +148,9 @@ export const UserProvider = ({ children }) => {
         .eq('id', userId)
         .single();
         
-      // PGRST116 is "No rows found". If profile doesn't exist, we create it as an ADMIN!
+      // PGRST116 is "No rows found". If profile doesn't exist, create a default one.
+      // New users always get rank 'Newbie'. Admin rank can only be set by existing admins
+      // via direct database access (protected by prevent_rank_escalation trigger).
       if (error && error.code === 'PGRST116') {
         const { data: newProfile, error: insertError } = await supabase
           .from('profiles')

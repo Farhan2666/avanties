@@ -1,3 +1,20 @@
+-- SECURITY FIX: Add missing columns to posts if they don't exist
+ALTER TABLE public.posts ADD COLUMN IF NOT EXISTS image_url TEXT;
+ALTER TABLE public.posts ADD COLUMN IF NOT EXISTS is_hidden BOOLEAN DEFAULT FALSE;
+ALTER TABLE public.posts ADD COLUMN IF NOT EXISTS reports_count INTEGER DEFAULT 0;
+ALTER TABLE public.posts ADD COLUMN IF NOT EXISTS reported_by UUID[] DEFAULT '{}';
+
+-- SECURITY FIX: Add missing columns to profiles if they don't exist
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS bio TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS rank TEXT DEFAULT 'Newbie';
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS level INTEGER DEFAULT 1;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS xp INTEGER DEFAULT 0;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS xp_max INTEGER DEFAULT 1000;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS total_xp INTEGER DEFAULT 0;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
+
+-- Post likes table
 CREATE TABLE IF NOT EXISTS public.post_likes (
     post_id BIGINT REFERENCES public.posts(id) ON DELETE CASCADE,
     user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
@@ -48,8 +65,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-ALTER TABLE public.posts ADD COLUMN IF NOT EXISTS image_url TEXT;
-
 CREATE OR REPLACE FUNCTION public.sync_post_comments_count()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -69,18 +84,57 @@ CREATE TRIGGER comments_count_trigger
     AFTER INSERT OR DELETE ON public.comments
     FOR EACH ROW EXECUTE FUNCTION public.sync_post_comments_count();
 
+-- Drop all existing post policies
 DROP POLICY IF EXISTS "Users can update own posts." ON public.posts;
 DROP POLICY IF EXISTS "Users can delete own posts." ON public.posts;
 DROP POLICY IF EXISTS "Users can delete posts." ON public.posts;
 DROP POLICY IF EXISTS "Users can update posts." ON public.posts;
+DROP POLICY IF EXISTS "Admins can delete any post." ON public.posts;
 
-CREATE POLICY "Users can update posts." ON public.posts FOR UPDATE USING (auth.uid() IS NOT NULL);
-CREATE POLICY "Users can delete posts." ON public.posts FOR DELETE USING (
-    auth.uid() = author_id 
-    OR 
+-- SECURITY FIX: Only allow users to update their OWN posts (was: auth.uid() IS NOT NULL which allowed ANYONE)
+CREATE POLICY "Users can update own posts." ON public.posts FOR UPDATE USING (auth.uid() = author_id);
+
+-- SECURITY FIX: Only owner or exact admin/owner rank can delete (was: LIKE '%admin%' which could be exploited)
+CREATE POLICY "Users can delete own posts." ON public.posts FOR DELETE USING (
+    auth.uid() = author_id
+    OR
     EXISTS (
-        SELECT 1 FROM public.profiles 
-        WHERE id = auth.uid() 
-        AND (LOWER(rank) LIKE '%admin%' OR LOWER(rank) LIKE '%owner%')
+        SELECT 1 FROM public.profiles
+        WHERE id = auth.uid()
+        AND (LOWER(rank) = 'admin' OR LOWER(rank) = 'owner')
     )
 );
+
+-- Drop existing profile policies
+DROP POLICY IF EXISTS "Users can update own profile." ON public.profiles;
+
+-- SECURITY FIX: Trigger to prevent non-admin users from setting rank to admin/owner
+CREATE OR REPLACE FUNCTION public.prevent_rank_escalation()
+RETURNS trigger AS $$
+DECLARE
+  is_admin BOOLEAN;
+BEGIN
+  -- Check if the current user is already an admin/owner
+  SELECT EXISTS (
+    SELECT 1 FROM public.profiles
+    WHERE id = auth.uid()
+    AND (LOWER(rank) = 'admin' OR LOWER(rank) = 'owner')
+  ) INTO is_admin;
+
+  -- If user is NOT admin/owner and tries to set rank to admin/owner, block it
+  IF NOT is_admin AND NEW.rank IS NOT NULL AND (LOWER(NEW.rank) = 'admin' OR LOWER(NEW.rank) = 'owner') THEN
+    IF TG_OP = 'UPDATE' THEN
+      NEW.rank := OLD.rank;
+    ELSE
+      NEW.rank := 'Newbie';
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS trg_prevent_rank_escalation ON public.profiles;
+CREATE TRIGGER trg_prevent_rank_escalation
+  BEFORE INSERT OR UPDATE ON public.profiles
+  FOR EACH ROW EXECUTE FUNCTION public.prevent_rank_escalation();

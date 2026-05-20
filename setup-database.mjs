@@ -42,6 +42,9 @@ CREATE TABLE IF NOT EXISTS posts (
   comments INTEGER DEFAULT 0,
   shares INTEGER DEFAULT 0,
   pinned BOOLEAN DEFAULT FALSE,
+  is_hidden BOOLEAN DEFAULT FALSE,
+  reports_count INTEGER DEFAULT 0,
+  reported_by UUID[] DEFAULT '{}',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -89,10 +92,13 @@ DROP POLICY IF EXISTS "Users can insert their own profile." ON profiles;
 DROP POLICY IF EXISTS "Users can update own profile." ON profiles;
 DROP POLICY IF EXISTS "Users can insert own posts." ON posts;
 DROP POLICY IF EXISTS "Users can update own posts." ON posts;
+DROP POLICY IF EXISTS "Users can delete own posts." ON posts;
+DROP POLICY IF EXISTS "Admins can delete any post." ON posts;
 DROP POLICY IF EXISTS "Public quests viewable." ON user_quests;
 DROP POLICY IF EXISTS "Users can manage own quests." ON user_quests;
 DROP POLICY IF EXISTS "Public comments viewable." ON comments;
 DROP POLICY IF EXISTS "Users can insert own comments." ON comments;
+DROP POLICY IF EXISTS "Users can delete own comments." ON comments;
 DROP POLICY IF EXISTS "Public post likes viewable." ON post_likes;
 DROP POLICY IF EXISTS "Users can like posts." ON post_likes;
 DROP POLICY IF EXISTS "Users can unlike own likes." ON post_likes;
@@ -101,16 +107,73 @@ DROP POLICY IF EXISTS "Users can unlike own likes." ON post_likes;
 CREATE POLICY "Public profiles are viewable by everyone." ON profiles FOR SELECT USING (true);
 CREATE POLICY "Public posts are viewable by everyone." ON posts FOR SELECT USING (true);
 CREATE POLICY "Users can insert their own profile." ON profiles FOR INSERT WITH CHECK (auth.uid() = id);
+
+-- SECURITY FIX: Users can update own profile BUT cannot change rank to admin/owner
+-- Rank escalation is blocked at the database level by the prevent_rank_escalation trigger
 CREATE POLICY "Users can update own profile." ON profiles FOR UPDATE USING (auth.uid() = id);
+
 CREATE POLICY "Users can insert own posts." ON posts FOR INSERT WITH CHECK (auth.uid() = author_id);
 CREATE POLICY "Users can update own posts." ON posts FOR UPDATE USING (auth.uid() = author_id);
+
+-- SECURITY FIX: Delete posts - only owner or admin/owner can delete
+CREATE POLICY "Users can delete own posts." ON posts FOR DELETE USING (
+  auth.uid() = author_id
+  OR
+  EXISTS (
+    SELECT 1 FROM public.profiles
+    WHERE id = auth.uid()
+    AND (LOWER(rank) = 'admin' OR LOWER(rank) = 'owner')
+  )
+);
+
 CREATE POLICY "Public quests viewable." ON user_quests FOR SELECT USING (true);
 CREATE POLICY "Users can manage own quests." ON user_quests FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Public comments viewable." ON comments FOR SELECT USING (true);
 CREATE POLICY "Users can insert own comments." ON comments FOR INSERT WITH CHECK (auth.uid() = author_id);
+CREATE POLICY "Users can delete own comments." ON comments FOR DELETE USING (
+  auth.uid() = author_id
+  OR
+  EXISTS (
+    SELECT 1 FROM public.profiles
+    WHERE id = auth.uid()
+    AND (LOWER(rank) = 'admin' OR LOWER(rank) = 'owner')
+  )
+);
 CREATE POLICY "Public post likes viewable." ON post_likes FOR SELECT USING (true);
 CREATE POLICY "Users can like posts." ON post_likes FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can unlike own likes." ON post_likes FOR DELETE USING (auth.uid() = user_id);
+
+-- SECURITY FIX: Trigger to prevent non-admin users from setting rank to admin/owner
+CREATE OR REPLACE FUNCTION public.prevent_rank_escalation()
+RETURNS trigger AS $$
+DECLARE
+  is_admin BOOLEAN;
+BEGIN
+  -- Check if the current user is already an admin/owner
+  SELECT EXISTS (
+    SELECT 1 FROM public.profiles
+    WHERE id = auth.uid()
+    AND (LOWER(rank) = 'admin' OR LOWER(rank) = 'owner')
+  ) INTO is_admin;
+
+  -- If user is NOT admin/owner and tries to set rank to admin/owner, block it
+  IF NOT is_admin AND NEW.rank IS NOT NULL AND (LOWER(NEW.rank) = 'admin' OR LOWER(NEW.rank) = 'owner') THEN
+    -- Force rank back to the old value or default
+    IF TG_OP = 'UPDATE' THEN
+      NEW.rank := OLD.rank;
+    ELSE
+      NEW.rank := 'Newbie';
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS trg_prevent_rank_escalation ON profiles;
+CREATE TRIGGER trg_prevent_rank_escalation
+  BEFORE INSERT OR UPDATE ON profiles
+  FOR EACH ROW EXECUTE FUNCTION public.prevent_rank_escalation();
 
 -- 7. Auto-create profile saat user baru daftar
 CREATE OR REPLACE FUNCTION public.handle_new_user()
