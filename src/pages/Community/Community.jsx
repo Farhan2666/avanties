@@ -55,6 +55,7 @@ const Community = () => {
   const [commentSending, setCommentSending] = React.useState({});
   const [confirmDeleteId, setConfirmDeleteId] = React.useState(null);
   const [confirmReportId, setConfirmReportId] = React.useState(null);
+  const fileInputRef = React.useRef(null);
 
   const handlePost = () => {
     if (postContent.trim()) {
@@ -168,17 +169,18 @@ const Community = () => {
                 </div>
               )}
               <div className="compose-box__toolbar">
+                <input
+                  type="file"
+                  accept="image/*"
+                  ref={fileInputRef}
+                  style={{ display: 'none' }}
+                  onChange={handleImageSelect}
+                />
                 <button
                   type="button"
                   className="compose-box__image-btn"
                   title="Add image"
-                  onClick={() => {
-                    const input = document.createElement('input');
-                    input.type = 'file';
-                    input.accept = 'image/*';
-                    input.onchange = handleImageSelect;
-                    input.click();
-                  }}
+                  onClick={() => fileInputRef.current?.click()}
                 >
                   <ImagePlus size={18} />
                 </button>
