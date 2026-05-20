@@ -20,38 +20,62 @@ const quickPrompts = [
   { icon: Lightbulb, label: 'Pro strategies' },
 ];
 
-const keywordReplies = [
-  { keywords: ['quest', 'daily', 'xp', 'level', 'rank'], reply: "For daily quests, focus on the 'Ancient Trials' chain — it gives 3,500 XP total. Pro tip: stacking 3 daily quests before claiming doubles your streak bonus! 🎯" },
-  { keywords: ['game', 'recommend', 'play', 'rpg', 'fps'], reply: "Based on your profile, I'd recommend Shadow Realm Online — it matches your RPG-heavy playstyle and gives 500 XP per dungeon run. Perfect for your level! 🎮" },
-  { keywords: ['strategy', 'tips', 'pro', 'trick', 'how'], reply: "Here's a pro strategy: rotate between PvP and PvE content to avoid burnout penalties. The algorithm favors diverse playstyles — you'll earn 20% more XP! 🧠" },
-  { keywords: ['hello', 'hi', 'hey', 'halo', 'hai'], reply: "Hey Commander! Ready for some gaming? I've got your quest log ready and there's a limited-time event with double XP in Mystic Forge! 🔥" },
-  { keywords: ['help', 'bantu', 'tutorial', 'panduan'], reply: "I can help with: tracking your daily quests, recommending games based on your playstyle, XP optimization strategies, and explaining game mechanics. What do you need? 💜" },
-  { keywords: ['terima kasih', 'thanks', 'thank', 'makasih'], reply: "You're welcome, Commander! Keep grinding and you'll hit Diamond rank in no time. I'm always here if you need me! ⭐" },
-]
-
-const getReply = (text) => {
-  const lower = text.toLowerCase()
-  for (const item of keywordReplies) {
-    if (item.keywords.some(k => lower.includes(k))) return item.reply
-  }
-  const fallbacks = [
-    "Interesting! Based on your activity patterns, I think you'd benefit from exploring the Mystic Forge event this week. Double XP is live! ✨",
-    "Great question! I've analyzed your recent sessions and there's an optimal quest path that could boost your XP gain by 30%. Want me to elaborate? 🎯",
-    "I see you're curious! Right now the community is buzzing about the new PvP season rewards. Legends Arena has a limited-time 10,000 XP grand prize! 🏆",
-    "Good thinking! My data shows that players who complete at least 3 daily quests in a row get a hidden streak multiplier. You're on the right track! 🔥",
-  ]
-  return fallbacks[Math.floor(Math.random() * fallbacks.length)]
-}
-
 const FeliaAI = () => {
   const [messages, setMessages] = React.useState(initialMessages);
   const [input, setInput] = React.useState('');
   const [isTyping, setIsTyping] = React.useState(false);
+  const [error, setError] = React.useState(null);
   const chatRef = React.useRef(null);
 
   const scrollToBottom = () => {
     if (chatRef.current) {
       chatRef.current.scrollTop = chatRef.current.scrollHeight;
+    }
+  };
+
+  React.useEffect(() => {
+    scrollToBottom();
+  }, [messages, isTyping]);
+
+  const sendMessage = async (text) => {
+    if (!text.trim()) return;
+    const userMsg = { role: 'user', content: text, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) };
+    setMessages(prev => [...prev, userMsg]);
+    setInput('');
+    setIsTyping(true);
+    setError(null);
+
+    const history = messages
+      .filter(m => m.role !== 'felia' || m.content !== initialMessages[0].content)
+      .map(m => ({ role: m.role === 'felia' ? 'assistant' : 'user', content: m.content }));
+
+    try {
+      const res = await fetch('/api/felia', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: [...history, { role: 'user', content: text }] }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to get response');
+      }
+
+      setMessages(prev => [...prev, {
+        role: 'felia',
+        content: data.reply,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      }]);
+    } catch (err) {
+      setError(err.message);
+      setMessages(prev => [...prev, {
+        role: 'felia',
+        content: "Sorry Commander, I'm having trouble connecting right now. Please try again in a moment! ",
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      }]);
+    } finally {
+      setIsTyping(false);
     }
   };
 
@@ -149,6 +173,11 @@ const FeliaAI = () => {
 
         {/* Input */}
         <div className="felia-input-bar">
+          {error && (
+            <div style={{ color: '#ef4444', fontSize: 12, textAlign: 'center', marginBottom: 8 }}>
+              ⚠️ {error}
+            </div>
+          )}
           <div className="felia-input-wrapper glass-panel">
             <Sparkles size={18} style={{ color: 'var(--accent-violet)', minWidth: 18 }} />
             <input
