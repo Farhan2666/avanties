@@ -83,23 +83,6 @@ const FeliaAI = () => {
     scrollToBottom();
   }, [messages, isTyping]);
 
-  const sendMessage = (text) => {
-    if (!text.trim()) return;
-    const userMsg = { role: 'user', content: text, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) };
-    setMessages(prev => [...prev, userMsg]);
-    setInput('');
-    setIsTyping(true);
-
-    setTimeout(() => {
-      setMessages(prev => [...prev, {
-        role: 'felia',
-        content: getReply(text),
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      }]);
-      setIsTyping(false);
-    }, 800 + Math.random() * 600);
-  };
-
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
